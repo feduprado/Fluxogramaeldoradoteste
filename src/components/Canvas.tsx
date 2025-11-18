@@ -17,6 +17,7 @@ interface CanvasProps {
   onStartConnection: (nodeId: string) => void;
   onUpdateTemporaryConnection: (x: number, y: number) => void;
   onEndConnection: (nodeId: string) => void;
+  onConnectionLabelToggle: (connectionId: string) => void;
   onNodeResize: (nodeId: string, newSize: { width: number; height: number }) => void;
   onMouseDown: (e: React.MouseEvent) => void;
   onMouseMove: (e: MouseEvent) => void;
@@ -38,6 +39,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   onStartConnection,
   onUpdateTemporaryConnection,
   onEndConnection,
+  onConnectionLabelToggle,
   onNodeResize,
   onMouseDown,
   onMouseMove,
@@ -142,6 +144,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 connection={connection}
                 fromNode={fromNode}
                 toNode={toNode}
+                onToggleLabel={onConnectionLabelToggle}
               />
             );
           })}
