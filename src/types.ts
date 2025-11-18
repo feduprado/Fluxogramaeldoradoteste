@@ -9,10 +9,14 @@ export interface FlowNode {
   height: number;
 }
 
+export type ConnectionVariant = 'positive' | 'negative' | 'neutral';
+
 export interface Connection {
   id: string;
   fromNodeId: string;
   toNodeId: string;
+  label?: string;
+  variant?: ConnectionVariant;
 }
 
 export interface FlowchartState {

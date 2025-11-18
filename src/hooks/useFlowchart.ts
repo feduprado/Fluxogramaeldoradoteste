@@ -1,6 +1,85 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { FlowNode, NodeType, Connection, FlowchartState } from '../types';
+import { FlowNode, NodeType, Connection, FlowchartState, ConnectionVariant } from '../types';
 import { copyToFigmaClipboard } from '../utils/figmaClipboard';
+
+const VARIANT_LABELS: Record<Exclude<ConnectionVariant, 'neutral'>, string> = {
+  positive: 'Sim',
+  negative: 'Não',
+};
+
+const labelForVariant = (variant: ConnectionVariant): string | undefined =>
+  variant === 'neutral' ? undefined : VARIANT_LABELS[variant];
+
+const normalizeLabel = (label?: string): string =>
+  (label || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+const inferVariantFromLabel = (label?: string): ConnectionVariant => {
+  const normalized = normalizeLabel(label);
+  if (!normalized) {
+    return 'neutral';
+  }
+  if (normalized === 'sim' || normalized === 'yes') {
+    return 'positive';
+  }
+  if (normalized === 'nao' || normalized === 'no') {
+    return 'negative';
+  }
+  return 'neutral';
+};
+
+const decorateConnection = (connection: Connection): Connection => {
+  const variant: ConnectionVariant = connection.variant || inferVariantFromLabel(connection.label);
+
+  if (variant === 'neutral') {
+    return connection.variant === 'neutral'
+      ? connection
+      : { ...connection, variant: 'neutral' };
+  }
+
+  const expectedLabel = labelForVariant(variant);
+  if (connection.variant === variant && connection.label === expectedLabel) {
+    return connection;
+  }
+
+  return {
+    ...connection,
+    variant,
+    label: expectedLabel,
+  };
+};
+
+const normalizeConnections = (connections: Connection[] = []) =>
+  connections.map(decorateConnection);
+
+const determineDecisionConnectionMetadata = (
+  fromNode: FlowNode | undefined,
+  connections: Connection[]
+): { variant: ConnectionVariant; label?: string } => {
+  if (!fromNode || fromNode.type !== 'decision') {
+    return { variant: 'neutral' };
+  }
+
+  const outgoing = connections.filter(conn => conn.fromNodeId === fromNode.id);
+  const hasVariant = (variant: ConnectionVariant) =>
+    outgoing.some(conn => (conn.variant || inferVariantFromLabel(conn.label)) === variant);
+
+  if (!hasVariant('positive')) {
+    return { variant: 'positive', label: labelForVariant('positive') };
+  }
+
+  if (!hasVariant('negative')) {
+    return { variant: 'negative', label: labelForVariant('negative') };
+  }
+
+  return {
+    variant: 'neutral',
+    label: `Fluxo ${outgoing.length + 1}`,
+  };
+};
 
 const initialState: FlowchartState = {
   nodes: [],
@@ -39,7 +118,7 @@ export const useFlowchart = () => {
           setState({
             ...initialState,
             nodes: data.nodes,
-            connections: data.connections || [],
+            connections: normalizeConnections(data.connections || []),
           });
           console.log('📂 Auto-save carregado');
         }
@@ -200,12 +279,16 @@ export const useFlowchart = () => {
           };
         }
         
-        const newConnection: Connection = {
+        const fromNode = prev.nodes.find(n => n.id === prev.temporaryConnection?.fromNodeId);
+        const metadata = determineDecisionConnectionMetadata(fromNode, prev.connections);
+
+        const newConnection: Connection = decorateConnection({
           id: `conn-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           fromNodeId: prev.temporaryConnection.fromNodeId,
           toNodeId: nodeId,
-        };
-        
+          ...metadata,
+        });
+
         const newState = {
           ...prev,
           connections: [...prev.connections, newConnection],
@@ -235,6 +318,32 @@ export const useFlowchart = () => {
     });
   }, [addToHistory]);
 
+  const toggleConnectionLabel = useCallback((connectionId: string) => {
+    setState(prev => {
+      const updatedConnections = prev.connections.map(connection => {
+        if (connection.id !== connectionId) return connection;
+
+        const currentVariant = connection.variant || inferVariantFromLabel(connection.label);
+        const nextVariant: ConnectionVariant =
+          currentVariant === 'positive'
+            ? 'negative'
+            : currentVariant === 'negative'
+              ? 'neutral'
+              : 'positive';
+
+        return decorateConnection({
+          ...connection,
+          variant: nextVariant,
+          label: labelForVariant(nextVariant),
+        });
+      });
+
+      const newState = { ...prev, connections: updatedConnections };
+      addToHistory(newState);
+      return newState;
+    });
+  }, [addToHistory]);
+
   const selectNode = useCallback((nodeId: string | null) => {
     console.log('🎯 Selecionando nó:', nodeId);
     setState(prev => ({ ...prev, selectedNodeId: nodeId }));
@@ -257,7 +366,7 @@ export const useFlowchart = () => {
     console.log('🤖 Aplicando fluxo da IA:', flow);
     const newState = {
       nodes: flow.nodes,
-      connections: flow.connections,
+      connections: normalizeConnections(flow.connections),
       selectedNodeId: null,
       temporaryConnection: null,
     };
@@ -505,7 +614,7 @@ export const useFlowchart = () => {
       if (data.nodes && Array.isArray(data.nodes)) {
         const newState = {
           nodes: data.nodes,
-          connections: data.connections || [],
+          connections: normalizeConnections(data.connections || []),
           selectedNodeId: null,
           temporaryConnection: null,
         };
@@ -533,6 +642,7 @@ export const useFlowchart = () => {
     updateTemporaryConnection,
     endConnection,
     removeConnection,
+    toggleConnectionLabel,
     selectNode,
     undo,
     redo,

@@ -31,6 +31,7 @@ const App: React.FC = () => {
     startConnection,
     updateTemporaryConnection,
     endConnection,
+    toggleConnectionLabel,
     selectNode,
     undo,
     redo,
@@ -303,6 +304,7 @@ const App: React.FC = () => {
         onStartConnection={startConnection}
         onUpdateTemporaryConnection={updateTemporaryConnection}
         onEndConnection={endConnection}
+        onConnectionLabelToggle={toggleConnectionLabel}
         onNodeResize={resizeNode}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
