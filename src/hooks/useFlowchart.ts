@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { FlowNode, NodeType, Connection, FlowchartState, ConnectionVariant } from '../types';
 import { copyToFigmaClipboard } from '../utils/figmaClipboard';
 import { ensureFlowchartData } from '../utils/flowchartValidation';
+import { autoFixDecisionLabels } from '../utils/decisionLabeling';
 import { flowchartPersistenceService } from '../services/flowchartPersistence';
 
 const VARIANT_LABELS: Record<Exclude<ConnectionVariant, 'neutral'>, string> = {
@@ -403,10 +404,16 @@ export const useFlowchart = () => {
       return false;
     }
 
+    const { flowchart: fixedFlow, report } = autoFixDecisionLabels(sanitized);
+
+    if (report) {
+      console.log(report);
+    }
+
     console.log('🤖 Aplicando fluxo validado');
     const newState = {
-      nodes: sanitized.nodes,
-      connections: normalizeConnections(sanitized.connections),
+      nodes: fixedFlow.nodes,
+      connections: normalizeConnections(fixedFlow.connections),
       selectedNodeId: null,
       temporaryConnection: null,
     };
