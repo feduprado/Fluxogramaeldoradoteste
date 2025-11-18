@@ -18,7 +18,7 @@ import {
   Maximize2,
   Moon,
   Sun
-} from 'lucide-react@0.487.0';
+} from 'lucide-react';
 
 interface ToolbarProps {
   onAddNode: (type: NodeType, position: { x: number; y: number }) => void;
