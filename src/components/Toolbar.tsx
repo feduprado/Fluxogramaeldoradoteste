@@ -144,6 +144,15 @@ const Sun: React.FC<IconProps> = (props) => (
   </IconBase>
 );
 
+const BarChart: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="M3 3v18h18"/>
+    <rect x="7" y="10" width="3" height="8" rx="1"/>
+    <rect x="12" y="6" width="3" height="12" rx="1"/>
+    <rect x="17" y="12" width="3" height="6" rx="1"/>
+  </IconBase>
+);
+
 interface ToolbarProps {
   onAddNode: (type: NodeType) => void;
   onRemoveNode: () => void;
@@ -165,6 +174,9 @@ interface ToolbarProps {
   onCopyToFigma: () => void;
   theme: Theme;
   onToggleTheme: () => void;
+  isAnalysisEnabled: boolean;
+  isAnalysisOpen: boolean;
+  onToggleAnalysis: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -188,6 +200,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onCopyToFigma,
   theme,
   onToggleTheme,
+  isAnalysisEnabled,
+  isAnalysisOpen,
+  onToggleAnalysis,
 }) => {
   const handleAddNode = (type: NodeType) => {
     onAddNode(type);
@@ -298,25 +313,42 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               <span>Refazer</span>
             </button>
 
-            <button
-              onClick={onClearCanvas}
-              className="px-3 py-1.5 bg-orange-500 text-white rounded-md text-xs font-medium hover:bg-orange-600 transition-colors flex items-center gap-1.5"
-              title="Limpar canvas"
-            >
-              <Eraser className="w-3 h-3"/>
-              <span>Limpar</span>
-            </button>
+          <button
+            onClick={onClearCanvas}
+            className="px-3 py-1.5 bg-orange-500 text-white rounded-md text-xs font-medium hover:bg-orange-600 transition-colors flex items-center gap-1.5"
+            title="Limpar canvas"
+          >
+            <Eraser className="w-3 h-3"/>
+            <span>Limpar</span>
+          </button>
 
+          <button
+            onClick={onAIClick}
+            className="px-3 py-1.5 bg-purple-500 text-white rounded-md text-xs font-medium hover:bg-purple-600 transition-colors flex items-center gap-1.5"
+            title="Interpretar com IA"
+          >
+            <Sparkles className="w-3 h-3"/>
+            <span>IA</span>
+          </button>
+
+          {isAnalysisEnabled && (
             <button
-              onClick={onAIClick}
-              className="px-3 py-1.5 bg-purple-500 text-white rounded-md text-xs font-medium hover:bg-purple-600 transition-colors flex items-center gap-1.5"
-              title="Interpretar com IA"
+              onClick={onToggleAnalysis}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                isAnalysisOpen
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-500'
+                  : theme === 'dark'
+                    ? 'bg-[#1E1E1E] text-indigo-200 hover:bg-[#2D2D2D]'
+                    : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
+              }`}
+              title={isAnalysisOpen ? 'Ocultar painel de análise' : 'Abrir painel de análise'}
             >
-              <Sparkles className="w-3 h-3"/>
-              <span>IA</span>
+              <BarChart className="w-3.5 h-3.5"/>
+              <span>{isAnalysisOpen ? 'Análise ativa' : 'Análise'}</span>
             </button>
-          </div>
+          )}
         </div>
+      </div>
 
         {/* Controles de visualização */}
         <div className="flex items-center space-x-2">

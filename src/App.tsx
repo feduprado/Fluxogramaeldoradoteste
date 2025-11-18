@@ -9,11 +9,8 @@ import { usePanZoom } from './hooks/usePanZoom';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useTheme } from './hooks/useTheme';
 import { AIParsedFlow, NodeType, OptimizationSuggestion, Suggestion } from './types';
-import { CollaborationOverlay } from './components/CollaborationOverlay';
-import { CollaborationStatus } from './components/CollaborationStatus';
 import { PerformanceDashboard } from './components/PerformanceDashboard';
 import { SmartSuggestions } from './components/SmartSuggestions';
-import { useCollaboration } from './hooks/useCollaboration';
 import { useLearning } from './hooks/useLearning';
 import { ADVANCED_FEATURES } from './config/advanced';
 import './styles/flowchart.css'; // Importa o CSS
@@ -75,27 +72,6 @@ const App: React.FC = () => {
     zoomOut,
     centerFlow,
   } = usePanZoom();
-
-  const handleRemoteState = useCallback(
-    (state: { nodes: typeof nodes; connections: typeof connections }) => {
-      if (!state) {
-        return;
-      }
-      applyFlow(state);
-    },
-    [applyFlow]
-  );
-
-  const {
-    collaborators,
-    isConnected: isCollaborationActive,
-    featureEnabled: isCollaborationEnabled,
-  } = useCollaboration({
-    roomId: 'fluxograma-room',
-    flowSnapshot: { nodes, connections },
-    selectedNodeId,
-    onRemoteState: handleRemoteState,
-  });
 
   useEffect(() => {
     trackAction({ type: 'app_loaded', context: { nodes: nodes.length } });
@@ -353,22 +329,16 @@ const App: React.FC = () => {
         onCopyToFigma={handleCopyToFigma}
         theme={theme}
         onToggleTheme={toggleTheme}
+        isAnalysisEnabled={ADVANCED_FEATURES.performance.enabled}
+        isAnalysisOpen={showPerformanceDashboard}
+        onToggleAnalysis={() => setShowPerformanceDashboard(prev => !prev)}
       />
 
-      <div className="advanced-controls">
-        {isCollaborationEnabled && (
-          <CollaborationStatus collaborators={collaborators} isConnected={isCollaborationActive} />
-        )}
-        {ADVANCED_FEATURES.performance.enabled && (
-          <button
-            onClick={() => setShowPerformanceDashboard(prev => !prev)}
-            className="performance-toggle"
-          >
-            {showPerformanceDashboard ? 'Ocultar análise' : '📊 Análise de performance'}
-          </button>
-        )}
-        {adaptiveUI.showTutorials && <span className="helper-pill">Modo guiado</span>}
-      </div>
+      {adaptiveUI.showTutorials && (
+        <div className="advanced-controls">
+          <span className="helper-pill">Modo guiado</span>
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 relative" ref={canvasContainerRef}>
@@ -394,10 +364,6 @@ const App: React.FC = () => {
             theme={theme}
           />
 
-          {isCollaborationEnabled && (
-            <CollaborationOverlay collaborators={collaborators} theme={theme} />
-          )}
-
           <SmartSuggestions
             suggestions={suggestions}
             onApply={handleApplySmartSuggestion}
@@ -406,7 +372,7 @@ const App: React.FC = () => {
           />
         </div>
         {showPerformanceDashboard && (
-          <div className="performance-sidebar">
+          <div className={`performance-sidebar ${theme}`}>
             <PerformanceDashboard
               nodes={nodes}
               connections={connections}
