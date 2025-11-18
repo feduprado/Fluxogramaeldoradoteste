@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Toolbar } from './components/Toolbar';
 import { Canvas } from './components/Canvas';
 import { AIModal } from './components/AIModal';
@@ -9,20 +9,25 @@ import { usePanZoom } from './hooks/usePanZoom';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useTheme } from './hooks/useTheme';
 import { AIParsedFlow, NodeType, OptimizationSuggestion, Suggestion } from './types';
-import { CollaborationOverlay } from './components/CollaborationOverlay';
-import { CollaborationStatus } from './components/CollaborationStatus';
 import { PerformanceDashboard } from './components/PerformanceDashboard';
 import { SmartSuggestions } from './components/SmartSuggestions';
-import { useCollaboration } from './hooks/useCollaboration';
 import { useLearning } from './hooks/useLearning';
 import { ADVANCED_FEATURES } from './config/advanced';
 import './styles/flowchart.css'; // Importa o CSS
+
+const NODE_DEFAULT_SIZE: Record<NodeType, { width: number; height: number }> = {
+  start: { width: 120, height: 120 },
+  process: { width: 140, height: 80 },
+  decision: { width: 120, height: 120 },
+  end: { width: 120, height: 120 },
+};
 
 const App: React.FC = () => {
   const [showAIModal, setShowAIModal] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showShiftHint, setShowShiftHint] = useState(true);
   const [showPerformanceDashboard, setShowPerformanceDashboard] = useState(false);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
   const { showToast, ToastContainer } = useToast();
   const { theme, toggleTheme } = useTheme();
   const { suggestions, adaptiveUI, trackAction, dismissSuggestion } = useLearning();
@@ -68,27 +73,6 @@ const App: React.FC = () => {
     centerFlow,
   } = usePanZoom();
 
-  const handleRemoteState = useCallback(
-    (state: { nodes: typeof nodes; connections: typeof connections }) => {
-      if (!state) {
-        return;
-      }
-      applyFlow(state);
-    },
-    [applyFlow]
-  );
-
-  const {
-    collaborators,
-    isConnected: isCollaborationActive,
-    featureEnabled: isCollaborationEnabled,
-  } = useCollaboration({
-    roomId: 'fluxograma-room',
-    flowSnapshot: { nodes, connections },
-    selectedNodeId,
-    onRemoteState: handleRemoteState,
-  });
-
   useEffect(() => {
     trackAction({ type: 'app_loaded', context: { nodes: nodes.length } });
   }, [trackAction]);
@@ -100,12 +84,18 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAddNode = (type: NodeType) => {
-    const centerX = 400; // Posição fixa central
-    const centerY = 300;
-    addNode(type as any, { x: centerX, y: centerY });
+  const handleAddNode = useCallback((type: NodeType) => {
+    const rect = canvasContainerRef.current?.getBoundingClientRect();
+    const viewportWidth = rect?.width ?? window.innerWidth;
+    const viewportHeight = rect?.height ?? window.innerHeight;
+
+    const defaultSize = NODE_DEFAULT_SIZE[type];
+    const centerX = ((viewportWidth / 2) - pan.x) / zoom - defaultSize.width / 2;
+    const centerY = ((viewportHeight / 2) - pan.y) / zoom - defaultSize.height / 2;
+
+    addNode(type, { x: centerX, y: centerY });
     trackAction({ type: 'node_added', context: { nodeType: type } });
-  };
+  }, [addNode, pan.x, pan.y, trackAction, zoom]);
 
   const handleMoveNode = (dx: number, dy: number) => {
     if (selectedNodeId) {
@@ -319,10 +309,7 @@ const App: React.FC = () => {
   return (
     <div className={`h-screen flex flex-col ${theme === 'dark' ? 'bg-[#1E1E1E]' : 'bg-white'}`}>
       <Toolbar
-        onAddNode={(type, position) => {
-          addNode(type, position);
-          trackAction({ type: 'node_added', context: { nodeType: type } });
-        }}
+        onAddNode={handleAddNode}
         onRemoveNode={handleDelete}
         selectedNodeId={selectedNodeId}
         zoom={zoom}
@@ -342,25 +329,19 @@ const App: React.FC = () => {
         onCopyToFigma={handleCopyToFigma}
         theme={theme}
         onToggleTheme={toggleTheme}
+        isAnalysisEnabled={ADVANCED_FEATURES.performance.enabled}
+        isAnalysisOpen={showPerformanceDashboard}
+        onToggleAnalysis={() => setShowPerformanceDashboard(prev => !prev)}
       />
 
-      <div className="advanced-controls">
-        {isCollaborationEnabled && (
-          <CollaborationStatus collaborators={collaborators} isConnected={isCollaborationActive} />
-        )}
-        {ADVANCED_FEATURES.performance.enabled && (
-          <button
-            onClick={() => setShowPerformanceDashboard(prev => !prev)}
-            className="performance-toggle"
-          >
-            {showPerformanceDashboard ? 'Ocultar análise' : '📊 Análise de performance'}
-          </button>
-        )}
-        {adaptiveUI.showTutorials && <span className="helper-pill">Modo guiado</span>}
-      </div>
+      {adaptiveUI.showTutorials && (
+        <div className="advanced-controls">
+          <span className="helper-pill">Modo guiado</span>
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 relative">
+        <div className="flex-1 relative" ref={canvasContainerRef}>
           <Canvas
             nodes={nodes}
             connections={connections}
@@ -383,10 +364,6 @@ const App: React.FC = () => {
             theme={theme}
           />
 
-          {isCollaborationEnabled && (
-            <CollaborationOverlay collaborators={collaborators} theme={theme} />
-          )}
-
           <SmartSuggestions
             suggestions={suggestions}
             onApply={handleApplySmartSuggestion}
@@ -395,7 +372,7 @@ const App: React.FC = () => {
           />
         </div>
         {showPerformanceDashboard && (
-          <div className="performance-sidebar">
+          <div className={`performance-sidebar ${theme}`}>
             <PerformanceDashboard
               nodes={nodes}
               connections={connections}

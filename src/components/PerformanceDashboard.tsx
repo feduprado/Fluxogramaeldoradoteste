@@ -89,7 +89,9 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
           <div key={`${bottleneck.nodeId}-${bottleneck.issue}`} className={`bottleneck ${bottleneck.severity}`}>
             <strong>{bottleneck.issue}</strong>
             <p>{bottleneck.impact}</p>
-            <button onClick={() => focusNode(bottleneck.nodeId)}>Focar no nó</button>
+            <button className="insight-button" onClick={() => focusNode(bottleneck.nodeId)}>
+              Focar no nó
+            </button>
           </div>
         ))}
       </div>
@@ -110,7 +112,9 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
               ))}
             </ol>
             {onApplyOptimization && (
-              <button onClick={() => onApplyOptimization(suggestion)}>Aplicar</button>
+              <button className="apply-button" onClick={() => onApplyOptimization(suggestion)}>
+                Aplicar
+              </button>
             )}
           </div>
         ))}
