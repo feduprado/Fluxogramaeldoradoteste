@@ -47,3 +47,194 @@
 .flowchart-node input:focus {
   background: rgba(255, 255, 255, 0.1) !important;
 }
+.collaboration-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.remote-cursor {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.remote-cursor .cursor-label {
+  margin-top: 6px;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 11px;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.collaboration-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.collaboration-status .status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.collaboration-status .status-indicator.online {
+  background: #10b981;
+}
+
+.collaboration-status .status-indicator.offline {
+  background: #f87171;
+}
+
+.collaboration-status .avatars {
+  display: flex;
+  gap: 4px;
+}
+
+.collaboration-status .avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 11px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.collaboration-status .avatar.more {
+  background: rgba(255, 255, 255, 0.2);
+  color: #111;
+}
+
+.advanced-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.performance-toggle {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #fbbf24;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.performance-sidebar {
+  width: 320px;
+  border-left: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.9);
+  overflow-y: auto;
+}
+
+.performance-dashboard {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.performance-dashboard.dark {
+  background: #1f2937;
+  color: #f3f4f6;
+}
+
+.performance-dashboard.light {
+  background: #fff;
+  color: #111827;
+}
+
+.performance-dashboard .score-card {
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.performance-dashboard .bottleneck {
+  border-radius: 8px;
+  padding: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  margin-bottom: 8px;
+}
+
+.performance-dashboard .bottleneck.high {
+  border-color: #ef4444;
+}
+
+.performance-dashboard .bottleneck.medium {
+  border-color: #f97316;
+}
+
+.performance-dashboard .bottleneck.low {
+  border-color: #fbbf24;
+}
+
+.smart-suggestions {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 280px;
+  background: rgba(17, 24, 39, 0.85);
+  color: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  z-index: 40;
+}
+
+.smart-suggestions.light {
+  background: rgba(255, 255, 255, 0.95);
+  color: #111827;
+}
+
+.smart-suggestions .suggestion-card {
+  border-radius: 10px;
+  padding: 10px;
+  margin-top: 12px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.smart-suggestions.light .suggestion-card {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.smart-suggestions .actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.smart-suggestions button {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #6366f1;
+  color: #fff;
+  font-size: 12px;
+}
+
+.smart-suggestions button:last-child {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.helper-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #047857;
+  font-size: 12px;
+  font-weight: 600;
+}
