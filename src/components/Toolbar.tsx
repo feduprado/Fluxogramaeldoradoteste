@@ -1,24 +1,148 @@
 import React from 'react';
 import { NodeType } from '../types';
 import { Theme } from '../hooks/useTheme';
-import {
-  Circle,
-  Square,
-  Diamond,
-  Trash2,
-  Undo2,
-  Redo2,
-  Eraser,
-  Sparkles,
-  Download,
-  Upload,
-  Copy,
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
-  Moon,
-  Sun
-} from 'lucide-react';
+
+type IconProps = React.SVGProps<SVGSVGElement>;
+
+const IconBase: React.FC<IconProps> = ({ children, ...props }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    {children}
+  </svg>
+);
+
+const Circle: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <circle cx="12" cy="12" r="9"/>
+  </IconBase>
+);
+
+const Square: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <rect x="5" y="5" width="14" height="14" rx="2"/>
+  </IconBase>
+);
+
+const Diamond: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="M12 2 20 12 12 22 4 12Z"/>
+  </IconBase>
+);
+
+const Trash2: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="M3 6h18"/>
+    <path d="M19 6v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+    <path d="M10 11v6"/>
+    <path d="M14 11v6"/>
+  </IconBase>
+);
+
+const Undo2: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="M9 14 4 9l5-5"/>
+    <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
+  </IconBase>
+);
+
+const Redo2: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="m15 9 5 5-5 5"/>
+    <path d="M4 4v7a4 4 0 0 0 4 4h12"/>
+  </IconBase>
+);
+
+const Eraser: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="m16 3 5 5-11 11H5l-2-2Z"/>
+    <path d="M6 19h4"/>
+  </IconBase>
+);
+
+const Sparkles: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="m12 3-1.9 5.63L4.5 10l5.6 1.37L12 17l1.9-5.63L19.5 10l-5.6-1.37Z"/>
+    <path d="m5 3 2 4-4 2 4 2-2 4"/>
+    <path d="m19 17-2-4 4-2-4-2 2-4"/>
+  </IconBase>
+);
+
+const Download: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+    <path d="m7 10 5 5 5-5"/>
+    <path d="M12 15V3"/>
+  </IconBase>
+);
+
+const Upload: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/>
+    <path d="m17 8-5-5-5 5"/>
+    <path d="M12 3v12"/>
+  </IconBase>
+);
+
+const Copy: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <rect x="8" y="8" width="12" height="12" rx="2"/>
+    <rect x="4" y="4" width="12" height="12" rx="2"/>
+  </IconBase>
+);
+
+const ZoomIn: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <circle cx="11" cy="11" r="8"/>
+    <path d="m21 21-4.35-4.35"/>
+    <path d="M11 8v6"/>
+    <path d="M8 11h6"/>
+  </IconBase>
+);
+
+const ZoomOut: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <circle cx="11" cy="11" r="8"/>
+    <path d="m21 21-4.35-4.35"/>
+    <path d="M8 11h6"/>
+  </IconBase>
+);
+
+const Maximize2: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="M15 3h6v6"/>
+    <path d="M9 21H3v-6"/>
+    <path d="M21 3 14 10"/>
+    <path d="M3 21 10 14"/>
+  </IconBase>
+);
+
+const Moon: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z"/>
+  </IconBase>
+);
+
+const Sun: React.FC<IconProps> = (props) => (
+  <IconBase {...props}>
+    <circle cx="12" cy="12" r="4"/>
+    <path d="M12 2v2"/>
+    <path d="M12 20v2"/>
+    <path d="M4.93 4.93 6.34 6.34"/>
+    <path d="M17.66 17.66 19.07 19.07"/>
+    <path d="M2 12h2"/>
+    <path d="M20 12h2"/>
+    <path d="M4.93 19.07 6.34 17.66"/>
+    <path d="M17.66 6.34 19.07 4.93"/>
+  </IconBase>
+);
 
 interface ToolbarProps {
   onAddNode: (type: NodeType, position: { x: number; y: number }) => void;
