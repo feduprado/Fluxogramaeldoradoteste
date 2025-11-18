@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Toolbar } from './components/Toolbar';
 import { Canvas } from './components/Canvas';
 import { AIModal } from './components/AIModal';
@@ -18,11 +18,19 @@ import { useLearning } from './hooks/useLearning';
 import { ADVANCED_FEATURES } from './config/advanced';
 import './styles/flowchart.css'; // Importa o CSS
 
+const NODE_DEFAULT_SIZE: Record<NodeType, { width: number; height: number }> = {
+  start: { width: 120, height: 120 },
+  process: { width: 140, height: 80 },
+  decision: { width: 120, height: 120 },
+  end: { width: 120, height: 120 },
+};
+
 const App: React.FC = () => {
   const [showAIModal, setShowAIModal] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showShiftHint, setShowShiftHint] = useState(true);
   const [showPerformanceDashboard, setShowPerformanceDashboard] = useState(false);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
   const { showToast, ToastContainer } = useToast();
   const { theme, toggleTheme } = useTheme();
   const { suggestions, adaptiveUI, trackAction, dismissSuggestion } = useLearning();
@@ -100,12 +108,18 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAddNode = (type: NodeType) => {
-    const centerX = 400; // Posição fixa central
-    const centerY = 300;
-    addNode(type as any, { x: centerX, y: centerY });
+  const handleAddNode = useCallback((type: NodeType) => {
+    const rect = canvasContainerRef.current?.getBoundingClientRect();
+    const viewportWidth = rect?.width ?? window.innerWidth;
+    const viewportHeight = rect?.height ?? window.innerHeight;
+
+    const defaultSize = NODE_DEFAULT_SIZE[type];
+    const centerX = ((viewportWidth / 2) - pan.x) / zoom - defaultSize.width / 2;
+    const centerY = ((viewportHeight / 2) - pan.y) / zoom - defaultSize.height / 2;
+
+    addNode(type, { x: centerX, y: centerY });
     trackAction({ type: 'node_added', context: { nodeType: type } });
-  };
+  }, [addNode, pan.x, pan.y, trackAction, zoom]);
 
   const handleMoveNode = (dx: number, dy: number) => {
     if (selectedNodeId) {
@@ -319,10 +333,7 @@ const App: React.FC = () => {
   return (
     <div className={`h-screen flex flex-col ${theme === 'dark' ? 'bg-[#1E1E1E]' : 'bg-white'}`}>
       <Toolbar
-        onAddNode={(type, position) => {
-          addNode(type, position);
-          trackAction({ type: 'node_added', context: { nodeType: type } });
-        }}
+        onAddNode={handleAddNode}
         onRemoveNode={handleDelete}
         selectedNodeId={selectedNodeId}
         zoom={zoom}
@@ -360,7 +371,7 @@ const App: React.FC = () => {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 relative">
+        <div className="flex-1 relative" ref={canvasContainerRef}>
           <Canvas
             nodes={nodes}
             connections={connections}
