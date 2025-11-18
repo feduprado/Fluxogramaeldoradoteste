@@ -430,6 +430,7 @@ const App: React.FC = () => {
         pan={pan}
         onNodeSelect={selectNode}
         onNodeMove={updateNodePosition}
+        onNodeMoveEnd={saveNodePositionToHistory}
         onNodeTextChange={updateNodeText}
         onStartConnection={startConnection}
         onUpdateTemporaryConnection={updateTemporaryConnection}

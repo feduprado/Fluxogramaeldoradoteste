@@ -6,6 +6,7 @@ interface FlowchartNodeProps {
   isSelected: boolean;
   onSelect: (nodeId: string) => void;
   onMove: (nodeId: string, newPosition: { x: number; y: number }) => void;
+  onMoveEnd?: () => void;
   onTextChange: (nodeId: string, newText: string) => void;
   onStartConnection: (nodeId: string) => void;
   onEndConnection: (nodeId: string) => void;
@@ -20,6 +21,7 @@ export const FlowchartNode: React.FC<FlowchartNodeProps> = React.memo(({
   isSelected,
   onSelect,
   onMove,
+  onMoveEnd,
   onTextChange,
   onStartConnection,
   onEndConnection,
@@ -157,24 +159,21 @@ export const FlowchartNode: React.FC<FlowchartNodeProps> = React.memo(({
 
     const upHandler = () => {
       console.log('🔴 Finalizando arraste do nó:', node.id);
-      
+
       setIsDragging(false);
       document.removeEventListener('mousemove', moveHandler);
       document.removeEventListener('mouseup', upHandler);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
-      
-      // Salva no histórico após finalizar o arraste
-      if (typeof (onResize as any).savePositionToHistory === 'function') {
-        (onResize as any).savePositionToHistory();
-      }
+
+      onMoveEnd?.();
     };
 
     document.addEventListener('mousemove', moveHandler);
     document.addEventListener('mouseup', upHandler);
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
-  }, [node.id, node.position, isEditing, onSelect, zoom, onMove, onResize]);
+  }, [node.id, node.position, isEditing, onSelect, zoom, onMove, onMoveEnd]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();

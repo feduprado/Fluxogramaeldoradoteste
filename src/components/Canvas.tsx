@@ -13,6 +13,7 @@ interface CanvasProps {
   pan: { x: number; y: number };
   onNodeSelect: (nodeId: string | null) => void;
   onNodeMove: (nodeId: string, newPosition: { x: number; y: number }) => void;
+  onNodeMoveEnd: () => void;
   onNodeTextChange: (nodeId: string, newText: string) => void;
   onStartConnection: (nodeId: string) => void;
   onUpdateTemporaryConnection: (x: number, y: number) => void;
@@ -39,6 +40,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   onUpdateTemporaryConnection,
   onEndConnection,
   onNodeResize,
+  onNodeMoveEnd,
   onMouseDown,
   onMouseMove,
   onMouseUp,
@@ -192,6 +194,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             isSelected={selectedNodeId === node.id}
             onSelect={onNodeSelect}
             onMove={onNodeMove}
+            onMoveEnd={onNodeMoveEnd}
             onTextChange={onNodeTextChange}
             onStartConnection={onStartConnection}
             onEndConnection={onEndConnection}
