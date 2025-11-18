@@ -44,6 +44,7 @@ export const FlowchartNode: React.FC<FlowchartNodeProps> = React.memo(({
       height: node.height,
       left: node.position.x,
       top: node.position.y,
+      zIndex: 2,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',

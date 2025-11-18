@@ -137,6 +137,21 @@ export const Canvas: React.FC<CanvasProps> = ({
     );
   }, [connections, visibleNodeIds, viewportBounds]);
 
+  const backgroundStyle = useMemo((): React.CSSProperties => {
+    const isDark = theme === 'dark';
+    const baseColor = isDark ? '#0f172a' : '#f8fafc';
+    const lineColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.08)';
+
+    return {
+      backgroundColor: baseColor,
+      backgroundImage: `
+        linear-gradient(${lineColor} 1px, transparent 1px),
+        linear-gradient(90deg, ${lineColor} 1px, transparent 1px)
+      `,
+      backgroundSize: '48px 48px',
+    };
+  }, [theme]);
+
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
     // Permite pan com botão do meio (1) ou botão esquerdo no background
     const target = e.target as HTMLElement;
@@ -198,15 +213,24 @@ export const Canvas: React.FC<CanvasProps> = ({
           transformOrigin: '0 0',
         }}
       >
-        {/* Fundo branco - sem grid */}
+        {/* Fundo com grid leve que acompanha o pan/zoom */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none select-none"
+          style={{
+            ...backgroundStyle,
+            zIndex: 0,
+          }}
+        />
 
         {/* SVG para conexões */}
-        <svg 
-          className="absolute inset-0 pointer-events-none" 
-          style={{ 
-            width: '100%', 
+        <svg
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            width: '100%',
             height: '100%',
-            overflow: 'visible'
+            overflow: 'visible',
+            zIndex: 1,
           }}
         >
           {/* Conexões permanentes */}
