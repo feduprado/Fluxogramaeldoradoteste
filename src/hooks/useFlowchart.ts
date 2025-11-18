@@ -92,6 +92,19 @@ const initialState: FlowchartState = {
 
 const MAX_HISTORY = 50;
 
+const getSafeLocalStorage = (): Storage | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    return window.localStorage;
+  } catch (error) {
+    console.warn('LocalStorage indisponível:', error);
+    return null;
+  }
+};
+
 export const useFlowchart = () => {
   const [state, setState] = useState<FlowchartState>(initialState);
   const [history, setHistory] = useState<FlowchartState[]>([initialState]);
@@ -100,8 +113,13 @@ export const useFlowchart = () => {
 
   // Auto-save no localStorage
   useEffect(() => {
+    const storage = getSafeLocalStorage();
+    if (!storage) {
+      return;
+    }
+
     if (state.nodes.length === 0 && state.connections.length === 0) {
-      localStorage.removeItem('flowchart-autosave');
+      storage.removeItem('flowchart-autosave');
       return;
     }
 
@@ -110,13 +128,18 @@ export const useFlowchart = () => {
       connections: state.connections,
     });
 
-    localStorage.setItem('flowchart-autosave', JSON.stringify(sanitized));
+    storage.setItem('flowchart-autosave', JSON.stringify(sanitized));
     console.log('💾 Auto-save realizado');
   }, [state.nodes, state.connections]);
 
   // Carregar auto-save ao inicializar
   useEffect(() => {
-    const saved = localStorage.getItem('flowchart-autosave');
+    const storage = getSafeLocalStorage();
+    if (!storage) {
+      return;
+    }
+
+    const saved = storage.getItem('flowchart-autosave');
     if (!saved) {
       return;
     }
@@ -133,7 +156,7 @@ export const useFlowchart = () => {
       }
     } catch (error) {
       console.error('Erro ao carregar auto-save:', error);
-      localStorage.removeItem('flowchart-autosave');
+      storage.removeItem('flowchart-autosave');
     }
   }, []);
 
@@ -368,7 +391,8 @@ export const useFlowchart = () => {
     };
     setState(newState);
     addToHistory(newState);
-    localStorage.removeItem('flowchart-autosave');
+    const storage = getSafeLocalStorage();
+    storage?.removeItem('flowchart-autosave');
   }, [addToHistory]);
 
   const applyFlow = useCallback((flow: { nodes: FlowNode[]; connections: Connection[] }) => {

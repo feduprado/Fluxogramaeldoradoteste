@@ -18,9 +18,13 @@ export class LearningService {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        this.behavior = { ...defaultBehavior, ...JSON.parse(stored) };
+      try {
+        const stored = window.localStorage?.getItem(STORAGE_KEY);
+        if (stored) {
+          this.behavior = { ...defaultBehavior, ...JSON.parse(stored) };
+        }
+      } catch (error) {
+        console.warn('Não foi possível carregar dados de aprendizado do localStorage:', error);
       }
     }
   }
@@ -126,6 +130,11 @@ export class LearningService {
     if (typeof window === 'undefined') {
       return;
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.behavior));
+
+    try {
+      window.localStorage?.setItem(STORAGE_KEY, JSON.stringify(this.behavior));
+    } catch (error) {
+      console.warn('Não foi possível salvar dados de aprendizado no localStorage:', error);
+    }
   }
 }
