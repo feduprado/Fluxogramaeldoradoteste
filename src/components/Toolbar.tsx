@@ -1,24 +1,24 @@
 import React from 'react';
 import { NodeType } from '../types';
 import { Theme } from '../hooks/useTheme';
-import { 
-  Circle, 
-  Square, 
-  Diamond, 
-  Trash2, 
-  Undo2, 
-  Redo2, 
-  Eraser, 
-  Sparkles, 
-  Download, 
-  Upload, 
-  Copy, 
-  ZoomIn, 
-  ZoomOut, 
+import {
+  Circle,
+  Square,
+  Diamond,
+  Trash2,
+  Undo2,
+  Redo2,
+  Eraser,
+  Sparkles,
+  Download,
+  Upload,
+  Copy,
+  ZoomIn,
+  ZoomOut,
   Maximize2,
   Moon,
   Sun
-} from 'lucide-react';
+} from 'lucide-react@0.487.0';
 
 interface ToolbarProps {
   onAddNode: (type: NodeType, position: { x: number; y: number }) => void;
