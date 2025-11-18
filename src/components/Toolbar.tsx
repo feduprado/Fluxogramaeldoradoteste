@@ -145,7 +145,7 @@ const Sun: React.FC<IconProps> = (props) => (
 );
 
 interface ToolbarProps {
-  onAddNode: (type: NodeType, position: { x: number; y: number }) => void;
+  onAddNode: (type: NodeType) => void;
   onRemoveNode: () => void;
   selectedNodeId: string | null;
   zoom: number;
@@ -190,10 +190,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onToggleTheme,
 }) => {
   const handleAddNode = (type: NodeType) => {
-    // Posição central fixa
-    const centerX = 400;
-    const centerY = 300;
-    onAddNode(type, { x: centerX, y: centerY });
+    onAddNode(type);
   };
 
   return (
