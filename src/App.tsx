@@ -123,8 +123,12 @@ const App: React.FC = () => {
   };
 
   const handleExport = () => {
-    exportAsJSON();
-    showToast('Fluxograma exportado com sucesso!', 'success');
+    const success = exportAsJSON();
+    if (success) {
+      showToast('Fluxograma exportado com sucesso!', 'success');
+    } else {
+      showToast('Erro ao exportar fluxograma', 'error');
+    }
   };
 
   const handleExportSVG = () => {
@@ -145,17 +149,12 @@ const App: React.FC = () => {
       if (file) {
         const reader = new FileReader();
         reader.onload = (event) => {
-          try {
-            const data = JSON.parse(event.target?.result as string);
-            if (data.nodes && data.connections) {
-              applyFlow(data);
-              showToast('Fluxograma importado com sucesso!', 'success');
-            } else {
-              showToast('Arquivo JSON inválido', 'error');
-            }
-          } catch (error) {
-            console.error('Error importing file:', error);
-            showToast('Erro ao importar arquivo', 'error');
+          const content = event.target?.result as string;
+          const success = importFromJSON(content);
+          if (success) {
+            showToast('Fluxograma importado com sucesso!', 'success');
+          } else {
+            showToast('Arquivo JSON inválido', 'error');
           }
         };
         reader.readAsText(file);
@@ -213,8 +212,12 @@ const App: React.FC = () => {
   };
 
   const handleApplyAIFlow = (flow: AIParsedFlow) => {
-    applyFlow(flow);
-    showToast('Fluxograma gerado pela IA aplicado!', 'success');
+    const applied = applyFlow(flow);
+    if (applied) {
+      showToast('Fluxograma gerado pela IA aplicado!', 'success');
+    } else {
+      showToast('Fluxograma gerado pela IA inválido', 'error');
+    }
   };
 
   const handleClearCanvas = () => {

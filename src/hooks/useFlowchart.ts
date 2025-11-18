@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { FlowNode, NodeType, Connection, FlowchartState, ConnectionVariant } from '../types';
 import { copyToFigmaClipboard } from '../utils/figmaClipboard';
+import { ensureFlowchartData } from '../utils/flowchartValidation';
+import { flowchartPersistenceService } from '../services/flowchartPersistence';
 
 const VARIANT_LABELS: Record<Exclude<ConnectionVariant, 'neutral'>, string> = {
   positive: 'Sim',
@@ -98,33 +100,40 @@ export const useFlowchart = () => {
 
   // Auto-save no localStorage
   useEffect(() => {
-    if (state.nodes.length > 0 || state.connections.length > 0) {
-      const saveData = {
-        nodes: state.nodes,
-        connections: state.connections,
-      };
-      localStorage.setItem('flowchart-autosave', JSON.stringify(saveData));
-      console.log('💾 Auto-save realizado');
+    if (state.nodes.length === 0 && state.connections.length === 0) {
+      localStorage.removeItem('flowchart-autosave');
+      return;
     }
+
+    const sanitized = flowchartPersistenceService.sanitizeFlowchart({
+      nodes: state.nodes,
+      connections: state.connections,
+    });
+
+    localStorage.setItem('flowchart-autosave', JSON.stringify(sanitized));
+    console.log('💾 Auto-save realizado');
   }, [state.nodes, state.connections]);
 
   // Carregar auto-save ao inicializar
   useEffect(() => {
     const saved = localStorage.getItem('flowchart-autosave');
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        if (data.nodes && data.nodes.length > 0) {
-          setState({
-            ...initialState,
-            nodes: data.nodes,
-            connections: normalizeConnections(data.connections || []),
-          });
-          console.log('📂 Auto-save carregado');
-        }
-      } catch (error) {
-        console.error('Erro ao carregar auto-save:', error);
+    if (!saved) {
+      return;
+    }
+
+    try {
+      const parsed = flowchartPersistenceService.parse(saved);
+      if (parsed.nodes.length > 0) {
+        setState({
+          ...initialState,
+          nodes: parsed.nodes,
+          connections: normalizeConnections(parsed.connections || []),
+        });
+        console.log('📂 Auto-save carregado');
       }
+    } catch (error) {
+      console.error('Erro ao carregar auto-save:', error);
+      localStorage.removeItem('flowchart-autosave');
     }
   }, []);
 
@@ -363,15 +372,23 @@ export const useFlowchart = () => {
   }, [addToHistory]);
 
   const applyFlow = useCallback((flow: { nodes: FlowNode[]; connections: Connection[] }) => {
-    console.log('🤖 Aplicando fluxo da IA:', flow);
+    const sanitized = ensureFlowchartData(flow);
+
+    if (!sanitized) {
+      console.warn('⚠️ Fluxograma inválido recebido');
+      return false;
+    }
+
+    console.log('🤖 Aplicando fluxo validado');
     const newState = {
-      nodes: flow.nodes,
-      connections: normalizeConnections(flow.connections),
+      nodes: sanitized.nodes,
+      connections: normalizeConnections(sanitized.connections),
       selectedNodeId: null,
       temporaryConnection: null,
     };
     setState(newState);
     addToHistory(newState);
+    return true;
   }, [addToHistory]);
 
   const undo = useCallback(() => {
@@ -395,26 +412,18 @@ export const useFlowchart = () => {
   }, [history, historyIndex]);
 
   const exportAsJSON = useCallback(() => {
-    const data = {
-      nodes: state.nodes,
-      connections: state.connections,
-      metadata: {
-        exportDate: new Date().toISOString(),
-        version: '1.0',
-      },
-    };
-    
-    const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `fluxograma-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    console.log('📥 Fluxograma exportado como JSON');
-  }, [state]);
+    try {
+      flowchartPersistenceService.exportAsJSON({
+        nodes: state.nodes,
+        connections: state.connections,
+      });
+      console.log('📥 Fluxograma exportado como JSON');
+      return true;
+    } catch (error) {
+      console.error('Erro ao exportar fluxograma:', error);
+      return false;
+    }
+  }, [state.connections, state.nodes]);
 
   const exportAsSVG = useCallback(() => {
     if (state.nodes.length === 0) {
@@ -610,25 +619,17 @@ export const useFlowchart = () => {
 
   const importFromJSON = useCallback((jsonString: string) => {
     try {
-      const data = JSON.parse(jsonString);
-      if (data.nodes && Array.isArray(data.nodes)) {
-        const newState = {
-          nodes: data.nodes,
-          connections: normalizeConnections(data.connections || []),
-          selectedNodeId: null,
-          temporaryConnection: null,
-        };
-        setState(newState);
-        addToHistory(newState);
+      const parsed = flowchartPersistenceService.parse(jsonString);
+      const applied = applyFlow(parsed);
+      if (applied) {
         console.log('📤 Fluxograma importado com sucesso');
-        return true;
       }
-      return false;
+      return applied;
     } catch (error) {
       console.error('Erro ao importar JSON:', error);
       return false;
     }
-  }, [addToHistory]);
+  }, [applyFlow]);
 
   return {
     ...state,
