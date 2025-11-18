@@ -6,13 +6,17 @@ import {
   OptimizationSuggestion,
   PerformanceMetrics,
 } from '../types';
+import { analyzeFlowIntegrity } from '../utils/flowIntegrity';
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 export class PerformanceAnalyzer {
   async analyzePerformance(nodes: FlowNode[], connections: Connection[]): Promise<PerformanceMetrics> {
     const complexity = this.calculateComplexity(nodes, connections);
-    const bottlenecks = this.identifyBottlenecks(nodes, connections);
+    const integrityReport = analyzeFlowIntegrity(nodes, connections);
+    const integrityBottlenecks = this.mapIntegrityIssuesToBottlenecks(integrityReport.issues, nodes);
+    const heuristicsBottlenecks = this.identifyBottlenecks(nodes, connections);
+    const bottlenecks = [...integrityBottlenecks, ...heuristicsBottlenecks];
     const optimizationSuggestions = this.buildSuggestions(bottlenecks, nodes);
     const performanceScore = this.calculateScore(complexity, bottlenecks);
 
@@ -22,6 +26,24 @@ export class PerformanceAnalyzer {
       optimizationSuggestions,
       performanceScore,
     };
+  }
+
+  private mapIntegrityIssuesToBottlenecks(issues: ReturnType<typeof analyzeFlowIntegrity>['issues'], nodes: FlowNode[]) {
+    const nodeTypeMap = new Map(nodes.map(node => [node.id, node.type]));
+
+    return issues.map<Bottleneck>(issue => {
+      const relatedNodeType = issue.nodeId ? nodeTypeMap.get(issue.nodeId) : undefined;
+      const bottleneckType = relatedNodeType === 'decision' ? 'decision' : 'process';
+
+      return {
+        nodeId: issue.nodeId || 'flow',
+        type: bottleneckType,
+        issue: issue.summary,
+        severity: issue.severity,
+        impact: issue.detail || 'Revise as regras estruturais do fluxograma.',
+        suggestedFix: issue.suggestion || 'Ajuste o fluxo conforme a recomendação da regra aplicada.',
+      };
+    });
   }
 
   private calculateComplexity(nodes: FlowNode[], connections: Connection[]) {
@@ -60,20 +82,6 @@ export class PerformanceAnalyzer {
           });
         }
       }
-    });
-
-    const isolatedNodes = nodes.filter(
-      node => !connections.some(conn => conn.fromNodeId === node.id || conn.toNodeId === node.id)
-    );
-    isolatedNodes.forEach(node => {
-      bottlenecks.push({
-        nodeId: node.id,
-        type: node.type === 'decision' ? 'decision' : 'process',
-        issue: 'Nó isolado sem conexões',
-        severity: 'medium',
-        impact: 'Fluxos desconectados podem indicar passos faltantes',
-        suggestedFix: 'Conecte este nó a outro passo ou remova-o se for redundante.',
-      });
     });
 
     return bottlenecks;
