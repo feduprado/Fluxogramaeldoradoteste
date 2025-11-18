@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { FlowNode, Connection } from '../types';
 import { FlowchartNode } from './FlowchartNode';
 import { Connection as ConnectionComponent } from './Connection';
@@ -48,6 +48,37 @@ export const Canvas: React.FC<CanvasProps> = ({
   theme,
 }) => {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    if (!canvasRef.current) {
+      return;
+    }
+
+    const updateViewportSize = () => {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (rect) {
+        setViewportSize({ width: rect.width, height: rect.height });
+      }
+    };
+
+    updateViewportSize();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(entries => {
+        const entry = entries[0];
+        setViewportSize({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        });
+      });
+      observer.observe(canvasRef.current);
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener('resize', updateViewportSize);
+    return () => window.removeEventListener('resize', updateViewportSize);
+  }, []);
 
   useEffect(() => {
     document.addEventListener('mousemove', onMouseMove);
@@ -58,6 +89,53 @@ export const Canvas: React.FC<CanvasProps> = ({
       document.removeEventListener('mouseup', onMouseUp);
     };
   }, [onMouseMove, onMouseUp]);
+
+  const viewportBounds = useMemo(() => {
+    if (!viewportSize.width || !viewportSize.height) {
+      return null;
+    }
+
+    const left = -pan.x / zoom;
+    const top = -pan.y / zoom;
+    const right = left + viewportSize.width / zoom;
+    const bottom = top + viewportSize.height / zoom;
+
+    return { left, right, top, bottom };
+  }, [pan.x, pan.y, zoom, viewportSize.height, viewportSize.width]);
+
+  const visibleNodes = useMemo(() => {
+    if (!viewportBounds) {
+      return nodes;
+    }
+
+    const margin = 200; // Renderiza nós próximos ao viewport para uma transição suave
+    return nodes.filter(node => {
+      const nodeLeft = node.position.x - margin;
+      const nodeTop = node.position.y - margin;
+      const nodeRight = node.position.x + node.width + margin;
+      const nodeBottom = node.position.y + node.height + margin;
+
+      return (
+        nodeRight >= viewportBounds.left &&
+        nodeLeft <= viewportBounds.right &&
+        nodeBottom >= viewportBounds.top &&
+        nodeTop <= viewportBounds.bottom
+      );
+    });
+  }, [nodes, viewportBounds]);
+
+  const visibleNodeIds = useMemo(() => new Set(visibleNodes.map(node => node.id)), [visibleNodes]);
+
+  const visibleConnections = useMemo(() => {
+    if (!viewportBounds) {
+      return connections;
+    }
+
+    return connections.filter(connection =>
+      visibleNodeIds.has(connection.fromNodeId) ||
+      visibleNodeIds.has(connection.toNodeId)
+    );
+  }, [connections, visibleNodeIds, viewportBounds]);
 
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
     // Permite pan com botão do meio (1) ou botão esquerdo no background
@@ -132,10 +210,10 @@ export const Canvas: React.FC<CanvasProps> = ({
           }}
         >
           {/* Conexões permanentes */}
-          {connections.map(connection => {
+          {visibleConnections.map(connection => {
             const fromNode = nodes.find(n => n.id === connection.fromNodeId);
             const toNode = nodes.find(n => n.id === connection.toNodeId);
-            
+
             if (!fromNode || !toNode) return null;
 
             return (
@@ -187,7 +265,7 @@ export const Canvas: React.FC<CanvasProps> = ({
         </svg>
 
         {/* Nós do fluxograma */}
-        {nodes.map(node => (
+        {visibleNodes.map(node => (
           <FlowchartNode
             key={node.id}
             node={node}
