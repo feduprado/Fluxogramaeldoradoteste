@@ -1,0 +1,49 @@
+/* styles/flowchart.css */
+.diamond {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  transform: rotate(0deg);
+}
+
+.diamond-content {
+  transform: rotate(0deg);
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Para manter o texto reto dentro do losango */
+.diamond-text {
+  transform: rotate(0deg);
+  text-align: center;
+  width: 100%;
+  padding: 10px;
+}
+
+/* Garantir que os nós tenham o comportamento correto */
+.flowchart-node {
+  position: absolute;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Estilo específico para o losango */
+.diamond-shape {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+/* Melhorar a aparência dos inputs durante a edição */
+.flowchart-node input {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  text-align: center !important;
+  width: 100% !important;
+}
+
+.flowchart-node input:focus {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
