@@ -1,24 +1,24 @@
 import React from 'react';
 import { NodeType } from '../types';
 import { Theme } from '../hooks/useTheme';
-import { 
-  Circle, 
-  Square, 
-  Diamond, 
-  Trash2, 
-  Undo2, 
-  Redo2, 
-  Eraser, 
-  Sparkles, 
-  Download, 
-  Upload, 
-  Copy, 
-  ZoomIn, 
-  ZoomOut, 
-  Maximize2,
-  Moon,
-  Sun
-} from 'lucide-react';
+import {
+  CircleIcon as Circle,
+  CopyIcon as Copy,
+  DiamondIcon as Diamond,
+  DownloadIcon as Download,
+  EraserIcon as Eraser,
+  Maximize2Icon as Maximize2,
+  MoonIcon as Moon,
+  Redo2Icon as Redo2,
+  SparklesIcon as Sparkles,
+  SquareIcon as Square,
+  SunIcon as Sun,
+  Trash2Icon as Trash2,
+  Undo2Icon as Undo2,
+  UploadIcon as Upload,
+  ZoomInIcon as ZoomIn,
+  ZoomOutIcon as ZoomOut
+} from './icons/ToolbarIcons';
 
 interface ToolbarProps {
   onAddNode: (type: NodeType, position: { x: number; y: number }) => void;
