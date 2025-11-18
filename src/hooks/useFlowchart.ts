@@ -4,35 +4,7 @@ import { copyToFigmaClipboard } from '../utils/figmaClipboard';
 import { ensureFlowchartData } from '../utils/flowchartValidation';
 import { autoFixDecisionLabels } from '../utils/decisionLabeling';
 import { flowchartPersistenceService } from '../services/flowchartPersistence';
-
-const VARIANT_LABELS: Record<Exclude<ConnectionVariant, 'neutral'>, string> = {
-  positive: 'Sim',
-  negative: 'Não',
-};
-
-const labelForVariant = (variant: ConnectionVariant): string | undefined =>
-  variant === 'neutral' ? undefined : VARIANT_LABELS[variant];
-
-const normalizeLabel = (label?: string): string =>
-  (label || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim();
-
-const inferVariantFromLabel = (label?: string): ConnectionVariant => {
-  const normalized = normalizeLabel(label);
-  if (!normalized) {
-    return 'neutral';
-  }
-  if (normalized === 'sim' || normalized === 'yes') {
-    return 'positive';
-  }
-  if (normalized === 'nao' || normalized === 'no') {
-    return 'negative';
-  }
-  return 'neutral';
-};
+import { inferVariantFromLabel, labelForVariant } from '../utils/connectionVariants';
 
 const decorateConnection = (connection: Connection): Connection => {
   const variant: ConnectionVariant = connection.variant || inferVariantFromLabel(connection.label);
