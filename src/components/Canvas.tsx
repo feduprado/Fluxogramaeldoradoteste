@@ -121,10 +121,10 @@ export const Canvas: React.FC<CanvasProps> = ({
         {/* Fundo branco - sem grid */}
 
         {/* SVG para conexões */}
-        <svg 
-          className="absolute inset-0 pointer-events-none" 
-          style={{ 
-            width: '100%', 
+        <svg
+          className="absolute inset-0"
+          style={{
+            width: '100%',
             height: '100%',
             overflow: 'visible'
           }}
@@ -142,6 +142,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 connection={connection}
                 fromNode={fromNode}
                 toNode={toNode}
+                theme={theme}
               />
             );
           })}

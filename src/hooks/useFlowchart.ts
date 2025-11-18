@@ -1,12 +1,15 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { FlowNode, NodeType, Connection, FlowchartState } from '../types';
 import { copyToFigmaClipboard } from '../utils/figmaClipboard';
+import { calculateConnectionLabelPosition } from '../utils/geometry';
 
 const initialState: FlowchartState = {
   nodes: [],
   connections: [],
   selectedNodeId: null,
   temporaryConnection: null,
+  zoom: 1,
+  pan: { x: 0, y: 0 },
 };
 
 const MAX_HISTORY = 50;
@@ -183,6 +186,22 @@ export const useFlowchart = () => {
     }));
   }, []);
 
+  const determineDecisionLabel = useCallback((fromNodeId: string, connections: Connection[]) => {
+    const labelsInUse = connections
+      .filter(conn => conn.fromNodeId === fromNodeId)
+      .map(conn => conn.label);
+
+    if (!labelsInUse.includes('Sim')) {
+      return 'Sim' as const;
+    }
+
+    if (!labelsInUse.includes('Não')) {
+      return 'Não' as const;
+    }
+
+    return undefined;
+  }, []);
+
   const endConnection = useCallback((nodeId: string) => {
     console.log('🎯 Finalizando conexão no nó:', nodeId);
     setState(prev => {
@@ -200,10 +219,14 @@ export const useFlowchart = () => {
           };
         }
         
+        const fromNode = prev.nodes.find(n => n.id === prev.temporaryConnection!.fromNodeId);
         const newConnection: Connection = {
           id: `conn-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           fromNodeId: prev.temporaryConnection.fromNodeId,
           toNodeId: nodeId,
+          label: fromNode?.type === 'decision'
+            ? determineDecisionLabel(prev.temporaryConnection.fromNodeId, prev.connections)
+            : undefined,
         };
         
         const newState = {
@@ -221,7 +244,7 @@ export const useFlowchart = () => {
         };
       }
     });
-  }, [addToHistory]);
+  }, [addToHistory, determineDecisionLabel]);
 
   const removeConnection = useCallback((connectionId: string) => {
     console.log('🗑️ Removendo conexão:', connectionId);
@@ -242,27 +265,33 @@ export const useFlowchart = () => {
 
   const clearCanvas = useCallback(() => {
     console.log('🧹 Limpando canvas');
-    const newState = {
-      nodes: [],
-      connections: [],
-      selectedNodeId: null,
-      temporaryConnection: null,
-    };
-    setState(newState);
-    addToHistory(newState);
+    setState(prev => {
+      const newState = {
+        ...prev,
+        nodes: [],
+        connections: [],
+        selectedNodeId: null,
+        temporaryConnection: null,
+      };
+      addToHistory(newState);
+      return newState;
+    });
     localStorage.removeItem('flowchart-autosave');
   }, [addToHistory]);
 
   const applyFlow = useCallback((flow: { nodes: FlowNode[]; connections: Connection[] }) => {
     console.log('🤖 Aplicando fluxo da IA:', flow);
-    const newState = {
-      nodes: flow.nodes,
-      connections: flow.connections,
-      selectedNodeId: null,
-      temporaryConnection: null,
-    };
-    setState(newState);
-    addToHistory(newState);
+    setState(prev => {
+      const newState = {
+        ...prev,
+        nodes: flow.nodes,
+        connections: flow.connections,
+        selectedNodeId: null,
+        temporaryConnection: null,
+      };
+      addToHistory(newState);
+      return newState;
+    });
   }, [addToHistory]);
 
   const undo = useCallback(() => {
@@ -389,14 +418,20 @@ export const useFlowchart = () => {
         const startY = fromNode.position.y + fromNode.height / 2;
         const endX = toNode.position.x + toNode.width / 2;
         const endY = toNode.position.y + toNode.height / 2;
-        
-        svgContent += `  <line x1="${startX}" y1="${startY}" x2="${endX}" y2="${endY}" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowhead)"/>\n`;
-        
-        // Label da conexão (se houver)
+
+        svgContent += `  <path d="M ${startX} ${startY} Q ${(startX + endX) / 2} ${startY - 50} ${endX} ${endY}" stroke="#4B5563" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>\n`;
+
         if (connection.label) {
-          const midX = (startX + endX) / 2;
-          const midY = (startY + endY) / 2;
-          svgContent += `  <text x="${midX}" y="${midY - 5}" font-family="Arial, sans-serif" font-size="12" fill="#6B7280" text-anchor="middle">${connection.label}</text>\n`;
+          const labelPoint = calculateConnectionLabelPosition(fromNode, toNode);
+          const textWidth = Math.max((connection.label.length * 7) + 16, 40);
+          const rectWidth = textWidth;
+          const rectHeight = 20;
+          const rectX = labelPoint.x - rectWidth / 2;
+          const rectY = labelPoint.y - rectHeight / 2;
+          const strokeColor = connection.label === 'Sim' ? '#059669' : '#DC2626';
+
+          svgContent += `  <rect x="${rectX}" y="${rectY}" width="${rectWidth}" height="${rectHeight}" rx="10" fill="#FFFFFF" fill-opacity="0.9" stroke="${strokeColor}" stroke-width="1"/>\n`;
+          svgContent += `  <text x="${labelPoint.x}" y="${labelPoint.y}" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="${strokeColor}" text-anchor="middle" dominant-baseline="middle">${connection.label}</text>\n`;
         }
       }
     });
@@ -503,15 +538,18 @@ export const useFlowchart = () => {
     try {
       const data = JSON.parse(jsonString);
       if (data.nodes && Array.isArray(data.nodes)) {
-        const newState = {
-          nodes: data.nodes,
-          connections: data.connections || [],
-          selectedNodeId: null,
-          temporaryConnection: null,
-        };
-        setState(newState);
-        addToHistory(newState);
-        console.log('📤 Fluxograma importado com sucesso');
+        setState(prev => {
+          const newState = {
+            ...prev,
+            nodes: data.nodes,
+            connections: data.connections || [],
+            selectedNodeId: null,
+            temporaryConnection: null,
+          };
+          addToHistory(newState);
+          console.log('📤 Fluxograma importado com sucesso');
+          return newState;
+        });
         return true;
       }
       return false;

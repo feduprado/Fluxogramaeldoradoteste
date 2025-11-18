@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Toolbar } from './components/Toolbar';
 import { Canvas } from './components/Canvas';
 import { AIModal } from './components/AIModal';
@@ -8,7 +8,15 @@ import { useFlowchart } from './hooks/useFlowchart';
 import { usePanZoom } from './hooks/usePanZoom';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useTheme } from './hooks/useTheme';
-import { AIParsedFlow } from './types';
+import { AIParsedFlow, AISuggestion, ExportFormat } from './types';
+import { useGeminiAI } from './hooks/useGeminiAI';
+import { useFlowValidation } from './hooks/useFlowValidation';
+import { FlowTemplateService } from './services/flowTemplates';
+import { SmartExportService } from './services/exportService';
+import { AIAnalysisPanel } from './components/panels/AIAnalysisPanel';
+import { TemplateGallery } from './components/panels/TemplateGallery';
+import { ValidationPanel } from './components/panels/ValidationPanel';
+import { ExportMenu } from './components/panels/ExportMenu';
 import './styles/flowchart.css'; // Importa o CSS
 
 const App: React.FC = () => {
@@ -17,6 +25,23 @@ const App: React.FC = () => {
   const [showShiftHint, setShowShiftHint] = useState(true);
   const { showToast, ToastContainer } = useToast();
   const { theme, toggleTheme } = useTheme();
+  const geminiAI = useGeminiAI();
+  const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
+  const [isTemplateLoading, setIsTemplateLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const templateService = useMemo(
+    () => new FlowTemplateService(geminiAI.service),
+    [geminiAI.service]
+  );
+  const exportService = useMemo(
+    () => new SmartExportService(geminiAI.service),
+    [geminiAI.service]
+  );
+  const templateCategories = useMemo(
+    () => templateService.getPredefinedTemplates(),
+    [templateService]
+  );
   
   const {
     nodes,
@@ -57,6 +82,10 @@ const App: React.FC = () => {
     zoomOut,
     centerFlow,
   } = usePanZoom();
+
+  const { issues, validateFlowchart, isValidating } = useFlowValidation(nodes, connections, {
+    aiAnalyzer: geminiAI.analyzeFlowchart,
+  });
 
   const handleDelete = () => {
     if (selectedNodeId) {
@@ -133,6 +162,101 @@ const App: React.FC = () => {
     }
     exportAsSVG();
     showToast('Fluxograma exportado como SVG!', 'success');
+  };
+
+  const handleAnalyzeWithGemini = async () => {
+    if (nodes.length === 0) {
+      showToast('Adicione nós antes de solicitar análise com IA.', 'info');
+      return;
+    }
+    try {
+      await geminiAI.analyzeFlowchart(nodes, connections);
+      showToast('Análise da IA concluída!', 'success');
+    } catch (error) {
+      console.error('Erro ao analisar com IA:', error);
+      showToast('Erro ao analisar com IA.', 'error');
+    }
+  };
+
+  const handleGetAISuggestions = async () => {
+    if (nodes.length === 0) {
+      showToast('Adicione nós antes de solicitar sugestões.', 'info');
+      return;
+    }
+    const flowchartState = {
+      nodes,
+      connections,
+      selectedNodeId,
+      temporaryConnection,
+      zoom: 1,
+      pan: { x: 0, y: 0 },
+    };
+    const result = await geminiAI.getSuggestions(flowchartState);
+    setSuggestions(result);
+    if (result.length > 0) {
+      showToast('Sugestões inteligentes atualizadas!', 'success');
+    }
+  };
+
+  const handleUseTemplate = async (templateId: string) => {
+    setIsTemplateLoading(true);
+    try {
+      const template = await templateService.generateTemplate(templateId);
+      applyFlow({ nodes: template.nodes, connections: template.connections });
+      showToast('Template aplicado com sucesso!', 'success');
+    } catch (error) {
+      console.error('Erro ao carregar template:', error);
+      showToast('Erro ao carregar template inteligente.', 'error');
+    } finally {
+      setIsTemplateLoading(false);
+    }
+  };
+
+  const handleGenerateCustomTemplate = async (templateId: string, requirements: string) => {
+    setIsTemplateLoading(true);
+    try {
+      const template = await templateService.generateTemplate(templateId, requirements);
+      applyFlow({ nodes: template.nodes, connections: template.connections });
+      showToast('Template personalizado aplicado!', 'success');
+    } catch (error) {
+      console.error('Erro ao gerar template personalizado:', error);
+      showToast('Erro ao gerar template personalizado.', 'error');
+    } finally {
+      setIsTemplateLoading(false);
+    }
+  };
+
+  const handleSmartExport = async (format: ExportFormat) => {
+    if (nodes.length === 0) {
+      showToast('Adicione nós antes de exportar.', 'info');
+      return;
+    }
+    setIsExporting(true);
+    try {
+      const result = await exportService.exportWithDocumentation(
+        {
+          nodes,
+          connections,
+          selectedNodeId,
+          temporaryConnection,
+          zoom: 1,
+          pan: { x: 0, y: 0 },
+        },
+        { format, includeDocumentation: true }
+      );
+      const url = URL.createObjectURL(result.blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = result.filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      showToast('Exportação inteligente concluída!', 'success');
+    } catch (error) {
+      console.error('Erro na exportação inteligente:', error);
+      showToast('Erro ao exportar com IA.', 'error');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleImport = () => {
@@ -243,6 +367,13 @@ const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      validateFlowchart();
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [nodes, connections, validateFlowchart]);
+
   useKeyboardShortcuts({
     onUndo: undo,
     onRedo: redo,
@@ -310,6 +441,45 @@ const App: React.FC = () => {
         onWheel={handleWheel}
         theme={theme}
       />
+
+      <div
+        className={`${
+          theme === 'dark' ? 'bg-[#0f0f0f] border-[#1f1f1f]' : 'bg-gray-50 border-gray-200'
+        } border-t px-4 py-6`}
+      >
+        <div className="grid gap-4 lg:grid-cols-2">
+          <AIAnalysisPanel
+            nodes={nodes}
+            analysis={geminiAI.analysis}
+            suggestions={suggestions}
+            onAnalyze={handleAnalyzeWithGemini}
+            onGetSuggestions={handleGetAISuggestions}
+            isProcessing={geminiAI.isProcessing}
+            theme={theme}
+          />
+
+          <ValidationPanel
+            issues={issues}
+            onValidate={validateFlowchart}
+            isValidating={isValidating}
+            theme={theme}
+          />
+
+          <TemplateGallery
+            categories={templateCategories}
+            onUseTemplate={handleUseTemplate}
+            onGenerateCustom={handleGenerateCustomTemplate}
+            isLoading={isTemplateLoading}
+            theme={theme}
+          />
+
+          <ExportMenu
+            onExport={handleSmartExport}
+            isExporting={isExporting}
+            theme={theme}
+          />
+        </div>
+      </div>
 
       {/* Status Bar */}
       <div className={`${theme === 'dark' ? 'bg-[#2C2C2C] border-[#3C3C3C] text-gray-300' : 'bg-white border-gray-200 text-gray-600'} border-t px-4 py-2 text-sm flex justify-between items-center`}>

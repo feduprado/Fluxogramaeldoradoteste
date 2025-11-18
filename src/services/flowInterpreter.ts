@@ -83,6 +83,7 @@ export class FlowInterpreter {
           id: `conn-${lastDecision.nodeId}-to-${newNode.id}-${branchType}`,
           fromNodeId: lastDecision.nodeId,
           toNodeId: newNode.id,
+          label: branchType === 'sim' ? 'Sim' : 'Não',
         });
         
         branchNodes.push({ nodeId: newNode.id, branchType: branchType! });
