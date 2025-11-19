@@ -120,22 +120,32 @@ export const Canvas: React.FC<CanvasProps> = ({
     }
   };
 
+  // 🔥 Helper function para converter container ou node em formato unificado
+  const getElementForConnection = (id: string): FlowNode | null => {
+    const node = nodes.find(n => n.id === id);
+    if (node) return node;
+
+    const container = containers.find(c => c.id === id);
+    if (!container) return null;
+
+    // Converte container para formato de FlowNode
+    return {
+      id: container.id,
+      type: 'process',
+      position: { ...container.position },
+      text: container.name,
+      width: container.size.width,
+      height: container.size.height,
+    } as FlowNode;
+  };
+
   const calculateTemporaryConnectionPath = () => {
     if (!temporaryConnection) return '';
 
-    // Primeiro tenta encontrar um nó
-    const fromNode = nodes.find(n => n.id === temporaryConnection.fromNodeId);
-    if (fromNode) {
-      const startX = fromNode.position.x + fromNode.width / 2;
-      const startY = fromNode.position.y + fromNode.height / 2;
-      return `M ${startX} ${startY} L ${temporaryConnection.x} ${temporaryConnection.y}`;
-    }
-    
-    // Se não for um nó, tenta encontrar um container
-    const fromContainer = containers.find(c => c.id === temporaryConnection.fromNodeId);
-    if (fromContainer) {
-      const startX = fromContainer.position.x + fromContainer.size.width / 2;
-      const startY = fromContainer.position.y + fromContainer.size.height / 2;
+    const fromElement = getElementForConnection(temporaryConnection.fromNodeId);
+    if (fromElement) {
+      const startX = fromElement.position.x + fromElement.width / 2;
+      const startY = fromElement.position.y + fromElement.height / 2;
       return `M ${startX} ${startY} L ${temporaryConnection.x} ${temporaryConnection.y}`;
     }
 
@@ -173,16 +183,16 @@ export const Canvas: React.FC<CanvasProps> = ({
         >
           {/* Conexões permanentes */}
           {connections.map(conn => {
-            const fromNode = nodes.find(n => n.id === conn.fromNodeId);
-            const toNode = nodes.find(n => n.id === conn.toNodeId);
-            if (!fromNode || !toNode) return null;
+            const fromElement = getElementForConnection(conn.fromNodeId);
+            const toElement = getElementForConnection(conn.toNodeId);
+            if (!fromElement || !toElement) return null;
 
             return (
               <ConnectionComponent
                 key={conn.id}
                 connection={conn}
-                fromNode={fromNode}
-                toNode={toNode}
+                fromNode={fromElement}
+                toNode={toElement}
                 isSelected={conn.id === selectedConnectionId}
                 onSelect={onConnectionSelect}
                 onUpdatePoints={onUpdateConnectionPoints}
@@ -207,6 +217,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
           {/* Definições de marcadores */}
           <defs>
+            {/* Marcador padrão (azul) */}
             <marker
               id="arrowhead"
               markerWidth="10"
@@ -215,8 +226,34 @@ export const Canvas: React.FC<CanvasProps> = ({
               refY="3.5"
               orient="auto"
             >
-              <polygon points="0 0, 10 3.5, 0 7" fill="#4B5563" />
+              <polygon points="0 0, 10 3.5, 0 7" fill="#3B82F6" />
             </marker>
+            
+            {/* Marcador Verde (Sim) */}
+            <marker
+              id="arrowhead-sim"
+              markerWidth="10"
+              markerHeight="7"
+              refX="9"
+              refY="3.5"
+              orient="auto"
+            >
+              <polygon points="0 0, 10 3.5, 0 7" fill="#10B981" />
+            </marker>
+            
+            {/* Marcador Vermelho (Não) */}
+            <marker
+              id="arrowhead-nao"
+              markerWidth="10"
+              markerHeight="7"
+              refX="9"
+              refY="3.5"
+              orient="auto"
+            >
+              <polygon points="0 0, 10 3.5, 0 7" fill="#EF4444" />
+            </marker>
+            
+            {/* Marcador temporário */}
             <marker
               id="tempArrowhead"
               markerWidth="10"
@@ -289,17 +326,19 @@ export const Canvas: React.FC<CanvasProps> = ({
         >
           {/* Renderiza APENAS os labels (S/N) das conexões com label */}
           {connections.filter(conn => conn.label).map(conn => {
-            const fromNode = nodes.find(n => n.id === conn.fromNodeId);
-            const toNode = nodes.find(n => n.id === conn.toNodeId);
-            if (!fromNode || !toNode) return null;
+            const fromElement = getElementForConnection(conn.fromNodeId);
+            const toElement = getElementForConnection(conn.toNodeId);
+            if (!fromElement || !toElement) return null;
+
+            const defaultPoints = [
+              { x: fromElement.position.x + fromElement.width / 2, y: fromElement.position.y + fromElement.height / 2 },
+              { x: (fromElement.position.x + fromElement.width / 2 + toElement.position.x + toElement.width / 2) / 2, y: fromElement.position.y + fromElement.height / 2 },
+              { x: (fromElement.position.x + fromElement.width / 2 + toElement.position.x + toElement.width / 2) / 2, y: toElement.position.y + toElement.height / 2 },
+              { x: toElement.position.x + toElement.width / 2, y: toElement.position.y + toElement.height / 2 }
+            ];
 
             // Calcula posição do label
-            const points = conn.points || [
-              { x: fromNode.position.x + fromNode.width / 2, y: fromNode.position.y + fromNode.height / 2 },
-              { x: (fromNode.position.x + fromNode.width / 2 + toNode.position.x + toNode.width / 2) / 2, y: fromNode.position.y + fromNode.height / 2 },
-              { x: (fromNode.position.x + fromNode.width / 2 + toNode.position.x + toNode.width / 2) / 2, y: toNode.position.y + toNode.height / 2 },
-              { x: toNode.position.x + toNode.width / 2, y: toNode.position.y + toNode.height / 2 }
-            ];
+            const points = conn.points || defaultPoints;
             const labelPosition = points[Math.floor(points.length / 2)] || points[0];
             
             const isSimBranch = conn.label === 'Sim';

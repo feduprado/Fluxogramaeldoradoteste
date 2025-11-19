@@ -1,4 +1,6 @@
 import { FlowNode, Connection } from '../types';
+import { Container } from '../types/container';
+import { generateEnhancedSVG } from './exportSVGEnhanced';
 
 // Tipos baseados na estrutura interna do Figma (engenharia reversa)
 interface FigmaNode {
@@ -646,21 +648,26 @@ export function generateSVGFallback(
   return svgContent;
 }
 
-// Função principal para copiar para o Figma
+// Função principal para copiar SVG para clipboard
 export async function copyToFigmaClipboard(
   nodes: FlowNode[],
-  connections: Connection[]
+  connections: Connection[],
+  containers: Container[] = []
 ): Promise<{ success: boolean; method: string }> {
-  if (nodes.length === 0) {
-    console.warn('⚠️ Nenhum nó para copiar');
+  if (nodes.length === 0 && containers.length === 0) {
+    console.warn('⚠️ Nada para copiar');
     return { success: false, method: 'none' };
   }
 
   console.log('📋 Iniciando cópia para clipboard...');
   
-  // Gera todos os formatos antecipadamente
-  const figmaData = serializeToFigmaFormat(nodes, connections);
-  const svgData = generateSVGFallback(nodes, connections);
+  // Usa nossa função melhorada que é 100% fiel ao canvas
+  const svgData = generateEnhancedSVG(nodes, connections, containers);
+  
+  if (!svgData) {
+    console.warn('⚠️ Falha ao gerar SVG');
+    return { success: false, method: 'none' };
+  }
 
   // Verifica se a Clipboard API está disponível
   const hasClipboardAPI = typeof navigator !== 'undefined' && 
@@ -678,65 +685,49 @@ export async function copyToFigmaClipboard(
     return { success: true, method: 'download' };
   }
 
-  // Estratégia 1: Tenta Clipboard API moderna com múltiplos formatos
+  // Estratégia 1: Tenta Clipboard API moderna com SVG
   try {
-    const figmaBlob = new Blob([figmaData], { type: 'application/x-figma' });
     const svgBlob = new Blob([svgData], { type: 'image/svg+xml' });
     const textBlob = new Blob([svgData], { type: 'text/plain' });
 
     const clipboardItem = new ClipboardItem({
-      'application/x-figma': figmaBlob,
       'image/svg+xml': svgBlob,
       'text/plain': textBlob,
     });
 
     await navigator.clipboard.write([clipboardItem]);
     
-    console.log('✅ Método 1: Dados copiados com formato Figma nativo');
+    console.log('✅ SVG copiado para clipboard com sucesso');
     console.log('📊 Estrutura:', {
       nodes: nodes.length,
       connections: connections.length,
-      formats: ['application/x-figma', 'image/svg+xml', 'text/plain']
+      containers: containers.length,
+      formats: ['image/svg+xml', 'text/plain']
     });
     
-    return { success: true, method: 'clipboard-figma' };
+    return { success: true, method: 'clipboard-svg' };
   } catch (error1) {
     // Clipboard API bloqueada - isso é esperado em muitos ambientes
     console.log('🔄 Clipboard API bloqueada por política. Usando fallback...');
 
-    // Estratégia 2: Tenta apenas SVG com Clipboard API moderna
+    // Estratégia 2: Usa writeText (mais compatível)
     try {
-      const svgBlob = new Blob([svgData], { type: 'image/svg+xml' });
-      const textBlob = new Blob([svgData], { type: 'text/plain' });
-
-      const clipboardItem = new ClipboardItem({
-        'image/svg+xml': svgBlob,
-        'text/plain': textBlob,
-      });
-
-      await navigator.clipboard.write([clipboardItem]);
-      console.log('✅ Método 2: SVG copiado (sem formato Figma nativo)');
-      return { success: true, method: 'clipboard-svg' };
+      await navigator.clipboard.writeText(svgData);
+      console.log('✅ SVG copiado como texto');
+      return { success: true, method: 'clipboard-text' };
     } catch (error2) {
-      // Estratégia 3: Usa writeText (mais compatível)
-      try {
-        await navigator.clipboard.writeText(svgData);
-        console.log('✅ Método 3: SVG copiado como texto');
-        return { success: true, method: 'clipboard-text' };
-      } catch (error3) {
-        // Clipboard API totalmente bloqueada - usa métodos alternativos
-        console.log('🔄 Clipboard API bloqueada. Tentando método legacy...');
-        const execSuccess = copyUsingExecCommand(svgData);
-        
-        if (execSuccess) {
-          return { success: true, method: 'execCommand' };
-        }
-        
-        // Estratégia 5: Última alternativa - download automático
-        console.log('💾 Gerando arquivo SVG para download...');
-        downloadSVG(svgData);
-        return { success: true, method: 'download' };
+      // Clipboard API totalmente bloqueada - usa métodos alternativos
+      console.log('🔄 Clipboard API bloqueada. Tentando método legacy...');
+      const execSuccess = copyUsingExecCommand(svgData);
+      
+      if (execSuccess) {
+        return { success: true, method: 'execCommand' };
       }
+      
+      // Estratégia 3: Última alternativa - download automático
+      console.log('💾 Gerando arquivo SVG para download...');
+      downloadSVG(svgData);
+      return { success: true, method: 'download' };
     }
   }
 }

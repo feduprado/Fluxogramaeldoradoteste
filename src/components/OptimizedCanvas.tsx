@@ -197,6 +197,7 @@ export const OptimizedCanvas = React.memo<OptimizedCanvasProps>(({
 
           {/* Marcadores de seta */}
           <defs>
+            {/* Marcador padrão (azul) */}
             <marker
               id="arrowhead"
               markerWidth="10"
@@ -205,8 +206,34 @@ export const OptimizedCanvas = React.memo<OptimizedCanvasProps>(({
               refY="3.5"
               orient="auto"
             >
-              <polygon points="0 0, 10 3.5, 0 7" fill="#4B5563" />
+              <polygon points="0 0, 10 3.5, 0 7" fill="#3B82F6" />
             </marker>
+            
+            {/* Marcador Verde (Sim) */}
+            <marker
+              id="arrowhead-sim"
+              markerWidth="10"
+              markerHeight="7"
+              refX="9"
+              refY="3.5"
+              orient="auto"
+            >
+              <polygon points="0 0, 10 3.5, 0 7" fill="#10B981" />
+            </marker>
+            
+            {/* Marcador Vermelho (Não) */}
+            <marker
+              id="arrowhead-nao"
+              markerWidth="10"
+              markerHeight="7"
+              refX="9"
+              refY="3.5"
+              orient="auto"
+            >
+              <polygon points="0 0, 10 3.5, 0 7" fill="#EF4444" />
+            </marker>
+            
+            {/* Marcador temporário */}
             <marker
               id="tempArrowhead"
               markerWidth="10"

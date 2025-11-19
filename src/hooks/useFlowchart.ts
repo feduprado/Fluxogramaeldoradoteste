@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { FlowNode, NodeType, Connection, FlowchartState } from '../types';
+import { FlowNode, NodeType, Connection, FlowchartState, ConnectionStyle } from '../types';
 import { Container } from '../types/container';
 import { CONTAINER_COLORS, CONTAINER_BORDER_COLORS } from '../types/container';
 import { copyToFigmaClipboard } from '../utils/figmaClipboard';
+import { generateEnhancedSVG } from '../utils/exportSVGEnhanced';
 
 interface ExtendedFlowchartState extends FlowchartState {
   containers: Container[];
@@ -316,7 +317,7 @@ export const useFlowchart = () => {
     });
   }, [addToHistory]);
 
-  const updateConnectionStyle = useCallback((connectionId: string, style: any) => {
+  const updateConnectionStyle = useCallback((connectionId: string, style: ConnectionStyle) => {
     console.log('🎨 Atualizando estilo da conexão:', connectionId, style);
     setState(prev => {
       const newState = {
@@ -339,7 +340,7 @@ export const useFlowchart = () => {
     }));
   }, []);
 
-  const applyStyleToAllConnections = useCallback((style: any) => {
+  const applyStyleToAllConnections = useCallback((style: ConnectionStyle) => {
     console.log('🎨 Aplicando estilo a todas as conexões:', style);
     setState(prev => {
       const newState = {
@@ -433,6 +434,9 @@ export const useFlowchart = () => {
     const data = {
       nodes: state.nodes,
       connections: state.connections,
+      containers: state.containers,
+      pan: state.pan,
+      zoom: state.zoom,
       metadata: {
         exportDate: new Date().toISOString(),
         version: '1.0',
@@ -452,165 +456,12 @@ export const useFlowchart = () => {
   }, [state]);
 
   const exportAsSVG = useCallback(() => {
-    if (state.nodes.length === 0) {
-      console.warn('⚠️ Nenhum nó para exportar');
+    const svgContent = generateEnhancedSVG(state.nodes, state.connections, state.containers);
+    
+    if (!svgContent) {
+      console.warn('⚠️ Nada para exportar');
       return;
     }
-
-    // Calcula os limites do fluxograma
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    
-    state.nodes.forEach(node => {
-      minX = Math.min(minX, node.position.x);
-      minY = Math.min(minY, node.position.y);
-      maxX = Math.max(maxX, node.position.x + node.width);
-      maxY = Math.max(maxY, node.position.y + node.height);
-    });
-
-    // Adiciona margem
-    const margin = 40;
-    minX -= margin;
-    minY -= margin;
-    maxX += margin;
-    maxY += margin;
-
-    const width = maxX - minX;
-    const height = maxY - minY;
-
-    // Função para quebrar texto em múltiplas linhas (melhorada)
-    const wrapText = (text: string, maxWidth: number, fontSize: number = 14): string[] => {
-      // Se o texto já tem quebras manuais (\n), respeita elas
-      const manualLines = text.split('\n');
-      const wrappedLines: string[] = [];
-      
-      manualLines.forEach(line => {
-        const words = line.split(' ');
-        let currentLine = '';
-        
-        words.forEach(word => {
-          const testLine = currentLine ? `${currentLine} ${word}` : word;
-          // Aproximação mais precisa: ~7 pixels por caractere para fontSize 14
-          const estimatedWidth = testLine.length * (fontSize * 0.5);
-          
-          if (estimatedWidth > maxWidth && currentLine) {
-            wrappedLines.push(currentLine);
-            currentLine = word;
-          } else {
-            currentLine = testLine;
-          }
-        });
-        
-        if (currentLine) {
-          wrappedLines.push(currentLine);
-        }
-      });
-      
-      return wrappedLines.length > 0 ? wrappedLines : [''];
-    };
-
-    // Gera o conteúdo SVG
-    let svgContent = `<?xml version="1.0" encoding="UTF-8"?>
-<svg width="${width}" height="${height}" viewBox="${minX} ${minY} ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-      <polygon points="0 0, 10 3.5, 0 7" fill="#4B5563" />
-    </marker>
-  </defs>
-  
-  <!-- Background -->
-  <rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="white"/>
-  
-  <!-- Connections -->
-`;
-
-    // Adiciona conexões
-    state.connections.forEach(connection => {
-      const fromNode = state.nodes.find(n => n.id === connection.fromNodeId);
-      const toNode = state.nodes.find(n => n.id === connection.toNodeId);
-      
-      if (fromNode && toNode) {
-        const startX = fromNode.position.x + fromNode.width / 2;
-        const startY = fromNode.position.y + fromNode.height / 2;
-        const endX = toNode.position.x + toNode.width / 2;
-        const endY = toNode.position.y + toNode.height / 2;
-        
-        svgContent += `  <line x1="${startX}" y1="${startY}" x2="${endX}" y2="${endY}" stroke="#4B5563" stroke-width="2" marker-end="url(#arrowhead)"/>\n`;
-        
-        // Label da conexão (se houver)
-        if (connection.label) {
-          const midX = (startX + endX) / 2;
-          const midY = (startY + endY) / 2;
-          svgContent += `  <text x="${midX}" y="${midY - 5}" font-family="Arial, sans-serif" font-size="12" fill="#6B7280" text-anchor="middle">${connection.label}</text>\n`;
-        }
-      }
-    });
-
-    svgContent += `\n  <!-- Nodes -->\n`;
-
-    // Adiciona nós
-    state.nodes.forEach(node => {
-      const x = node.position.x;
-      const y = node.position.y;
-      const w = node.width;
-      const h = node.height;
-      const cx = x + w / 2;
-      const cy = y + h / 2;
-
-      // Define cores EXATAMENTE iguais ao aplicativo
-      let fill = '#FFFFFF';
-      let stroke = '#6B7280';
-      
-      switch (node.type) {
-        case 'start':
-          fill = '#10B981';  // Verde vibrante
-          stroke = '#047857'; // Verde escuro
-          break;
-        case 'end':
-          fill = '#EF4444';  // Vermelho vibrante
-          stroke = '#DC2626'; // Vermelho escuro
-          break;
-        case 'process':
-          fill = '#3B82F6';  // Azul vibrante
-          stroke = '#1D4ED8'; // Azul escuro
-          break;
-        case 'decision':
-          fill = '#F59E0B';  // Laranja/amarelo vibrante
-          stroke = '#D97706'; // Laranja escuro
-          break;
-      }
-
-      // Grupo para cada nó
-      svgContent += `  <g>\n`;
-
-      // Desenha a forma baseada no tipo
-      if (node.type === 'start' || node.type === 'end') {
-        // Elipse (círculo)
-        svgContent += `    <ellipse cx="${cx}" cy="${cy}" rx="${w/2}" ry="${h/2}" fill="${fill}" stroke="${stroke}" stroke-width="2"/>\n`;
-      } else if (node.type === 'decision') {
-        // Losango (diamante)
-        const points = `${cx},${y} ${x+w},${cy} ${cx},${y+h} ${x},${cy}`;
-        svgContent += `    <polygon points="${points}" fill="${fill}" stroke="${stroke}" stroke-width="2"/>\n`;
-      } else {
-        // Retângulo arredondado
-        svgContent += `    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" ry="8" fill="${fill}" stroke="${stroke}" stroke-width="2"/>\n`;
-      }
-
-      // Adiciona texto com quebra de linha (TEXTO BRANCO como no app)
-      const maxTextWidth = node.type === 'decision' ? w - 16 : w - 32;
-      const lines = wrapText(node.text, maxTextWidth);
-      const lineHeight = 16;
-      const totalTextHeight = lines.length * lineHeight;
-      const startY = cy - totalTextHeight / 2 + lineHeight / 2;
-
-      lines.forEach((line, index) => {
-        const textY = startY + index * lineHeight;
-        svgContent += `    <text x="${cx}" y="${textY}" font-family="Arial, sans-serif" font-size="14" font-weight="500" fill="white" text-anchor="middle" dominant-baseline="middle">${line}</text>\n`;
-      });
-
-      svgContent += `  </g>\n`;
-    });
-
-    svgContent += `</svg>`;
 
     // Download do arquivo SVG
     const blob = new Blob([svgContent], { type: 'image/svg+xml' });
@@ -625,14 +476,14 @@ export const useFlowchart = () => {
   }, [state]);
 
   const copyToFigma = useCallback(async () => {
-    if (state.nodes.length === 0) {
-      console.warn('⚠️ Nenhum nó para copiar');
+    if (state.nodes.length === 0 && state.containers.length === 0) {
+      console.warn('⚠️ Nada para copiar');
       return { success: false, method: 'none' };
     }
 
-    // Usa o utilitário que implementa o formato Figma nativo
+    // Usa o utilitário que implementa SVG fiel ao canvas
     try {
-      const result = await copyToFigmaClipboard(state.nodes, state.connections);
+      const result = await copyToFigmaClipboard(state.nodes, state.connections, state.containers);
       if (result.success) {
         console.log(`✅ Fluxograma copiado usando método: ${result.method}`);
       }
@@ -650,14 +501,16 @@ export const useFlowchart = () => {
         const newState: ExtendedFlowchartState = {
           nodes: data.nodes,
           connections: data.connections || [],
-          containers: [],
+          containers: Array.isArray(data.containers) ? data.containers : [],
           selectedNodeId: null,
           selectedNodeIds: [], // 🔧
           selectedContainerId: null,
           selectedContainerIds: [], // 🔧
           temporaryConnection: null,
-          zoom: 1,
-          pan: { x: 0, y: 0 },
+          zoom: typeof data.zoom === 'number' ? data.zoom : 1,
+          pan: data.pan && typeof data.pan.x === 'number' && typeof data.pan.y === 'number'
+            ? data.pan
+            : { x: 0, y: 0 },
         };
         setState(newState);
         addToHistory(newState);

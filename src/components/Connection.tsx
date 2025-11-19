@@ -46,6 +46,13 @@ export const Connection: React.FC<ConnectionProps> = React.memo((props) => {
     return style.color || defaultColor;
   }, [connection.label, style.color]);
 
+  // 🔥 Determina qual marcador (arrowhead) usar baseado no label
+  const arrowheadId = useMemo(() => {
+    if (connection.label === 'Sim') return 'arrowhead-sim';
+    if (connection.label === 'Não') return 'arrowhead-nao';
+    return 'arrowhead';
+  }, [connection.label]);
+
   // Calcula pontos base baseados no estilo
   const calculateBasePoints = useCallback((): { x: number; y: number }[] => {
     const startX = fromNode.position.x + fromNode.width / 2;
@@ -89,9 +96,26 @@ export const Connection: React.FC<ConnectionProps> = React.memo((props) => {
   }, [fromNode, toNode, style.type, style.curvature]);
 
   // Usa pontos personalizados ou calcula base
-  const points = useMemo(() => 
-    connection.points || calculateBasePoints()
-  , [connection.points, calculateBasePoints]);
+  const points = useMemo(() => {
+    const basePoints = calculateBasePoints();
+    
+    // Se não tem pontos customizados, usa os calculados
+    if (!connection.points) {
+      return basePoints;
+    }
+    
+    // Se tem pontos customizados, atualiza APENAS primeiro e último para seguir os nós
+    // Mantém os pontos intermediários customizados
+    const customPoints = [...connection.points];
+    
+    // Atualiza primeiro ponto (origem)
+    customPoints[0] = { ...basePoints[0] };
+    
+    // Atualiza último ponto (destino)
+    customPoints[customPoints.length - 1] = { ...basePoints[basePoints.length - 1] };
+    
+    return customPoints;
+  }, [connection.points, calculateBasePoints]);
 
   const path = useMemo(() => {
     if (points.length === 2 && style.type === 'straight') {
@@ -213,7 +237,7 @@ export const Connection: React.FC<ConnectionProps> = React.memo((props) => {
         strokeWidth={style.strokeWidth}
         strokeDasharray={style.dashed ? '5,5' : 'none'}
         fill="none"
-        markerEnd="url(#arrowhead)"
+        markerEnd={`url(#${arrowheadId})`}
         className={isSelected ? 'connection-selected' : ''}
         style={{ pointerEvents: 'none' }}
       />
@@ -257,6 +281,32 @@ export const Connection: React.FC<ConnectionProps> = React.memo((props) => {
           <polygon
             points="0 0, 10 3.5, 0 7"
             fill={connectionColor}
+          />
+        </marker>
+        <marker
+          id="arrowhead-sim"
+          markerWidth="10"
+          markerHeight="7"
+          refX="9"
+          refY="3.5"
+          orient="auto"
+        >
+          <polygon
+            points="0 0, 10 3.5, 0 7"
+            fill="#10B981"
+          />
+        </marker>
+        <marker
+          id="arrowhead-nao"
+          markerWidth="10"
+          markerHeight="7"
+          refX="9"
+          refY="3.5"
+          orient="auto"
+        >
+          <polygon
+            points="0 0, 10 3.5, 0 7"
+            fill="#EF4444"
           />
         </marker>
       </defs>

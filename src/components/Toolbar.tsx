@@ -342,11 +342,24 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             {selectedConnectionId && (
               <button
                 onClick={onConnectionStyleClick}
-                className="px-3 py-1.5 bg-[rgb(105,105,105)] text-white rounded-md text-xs font-medium hover:bg-teal-600 transition-colors flex items-center gap-1.5 animate-pulse"
+                className="px-3 py-1.5 bg-blue-600 text-white rounded-md text-xs font-medium hover:bg-blue-700 transition-colors flex items-center gap-1.5 shadow-sm"
                 title="Estilizar conexão selecionada"
               >
-                <span>🎨</span>
-                <span>Editar Hook</span>
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  width="14" 
+                  height="14" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 20h9"/>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>
+                <span>Editar Conexão</span>
               </button>
             )}
           </div>
@@ -454,10 +467,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <button
             onClick={onCopyToFigma}
             className="px-4 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-md text-xs font-medium hover:from-indigo-600 hover:to-purple-600 transition-all shadow-md hover:shadow-lg flex items-center gap-2"
-            title="Copiar SVG para clipboard e colar no Figma (Ctrl+V)"
+            title="Copiar SVG fiel ao canvas para clipboard (Ctrl+V para colar em qualquer lugar)"
           >
             <Copy className="w-3.5 h-3.5"/>
-            <span>Copiar para Figma</span>
+            <span>Copiar SVG</span>
           </button>
         </div>
 
