@@ -1,41 +1,42 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Toolbar } from './components/Toolbar';
 import { Canvas } from './components/Canvas';
-import { AIModal } from './components/AIModal';
+import { AIModalEnhanced } from './components/AIModalEnhanced';
 import { HelpModal } from './components/HelpModal';
+import { ConnectionContextMenu } from './components/ConnectionContextMenu';
+import { ConnectionToolbar } from './components/ConnectionToolbar';
+import { ContainerToolbar } from './components/ContainerToolbar';
+import { FlowchartErrorBoundary } from './components/ErrorBoundary';
 import { useToast } from './components/Toast';
 import { useFlowchart } from './hooks/useFlowchart';
 import { usePanZoom } from './hooks/usePanZoom';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useTheme } from './hooks/useTheme';
-import { AIParsedFlow, NodeType, OptimizationSuggestion, Suggestion } from './types';
-import { PerformanceDashboard } from './components/PerformanceDashboard';
-import { SmartSuggestions } from './components/SmartSuggestions';
-import { useLearning } from './hooks/useLearning';
-import { ADVANCED_FEATURES } from './config/advanced';
+import { useConnectionStyle } from './hooks/useConnectionStyle';
+import { AIParsedFlow } from './types';
 import './styles/flowchart.css'; // Importa o CSS
 
-const NODE_DEFAULT_SIZE: Record<NodeType, { width: number; height: number }> = {
-  start: { width: 120, height: 120 },
-  process: { width: 140, height: 80 },
-  decision: { width: 120, height: 120 },
-  end: { width: 120, height: 120 },
-};
-
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [showAIModal, setShowAIModal] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showShiftHint, setShowShiftHint] = useState(true);
-  const [showPerformanceDashboard, setShowPerformanceDashboard] = useState(false);
-  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const [showConnectionToolbar, setShowConnectionToolbar] = useState(false);
+  const [showContainerToolbar, setShowContainerToolbar] = useState(false);
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
+  const [connectionMenu, setConnectionMenu] = useState<{
+    connectionId: string;
+    position: { x: number; y: number };
+  } | null>(null);
   const { showToast, ToastContainer } = useToast();
   const { theme, toggleTheme } = useTheme();
-  const { suggestions, adaptiveUI, trackAction, dismissSuggestion } = useLearning();
-
+  
   const {
     nodes,
     connections,
     selectedNodeId,
+    selectedNodeIds, // 🆕 Multi-seleção
+    selectedContainerId,
+    selectedContainerIds, // 🆕
     temporaryConnection,
     addNode,
     removeNode,
@@ -45,7 +46,6 @@ const App: React.FC = () => {
     startConnection,
     updateTemporaryConnection,
     endConnection,
-    toggleConnectionLabel,
     selectNode,
     undo,
     redo,
@@ -58,7 +58,41 @@ const App: React.FC = () => {
     exportAsSVG,
     copyToFigma,
     importFromJSON,
+    updateConnectionLabel,
+    updateConnectionStyle,
+    updateConnectionPoints,
+    applyStyleToAllConnections,
+    removeConnection, // Adicionado
+    // Container operations
+    containers,
+    addContainer,
+    removeContainer,
+    updateContainerPosition,
+    updateContainerSize,
+    toggleContainerCollapse,
+    selectContainer,
+    renameContainer,
+    bringToFront,
+    sendToBack,
+    moveUp,
+    moveDown,
+    toggleContainerLock,
+    // 🆕 Multi-seleção
+    toggleNodeSelection,
+    selectMultipleNodes,
+    clearSelection,
+    // 🆕 Fixação de nós
+    toggleNodeFixed,
+    toggleSelectedNodesFixed,
+    // 🆕 Arraste múltiplo
+    updateMultipleNodesPosition,
+    clearMultiDragPositions, // 🆕 Limpa posições do arraste
   } = useFlowchart();
+
+  const {
+    connectionStyle,
+    updateConnectionStyle: updateGlobalConnectionStyle,
+  } = useConnectionStyle();
 
   const {
     pan,
@@ -73,29 +107,22 @@ const App: React.FC = () => {
     centerFlow,
   } = usePanZoom();
 
-  useEffect(() => {
-    trackAction({ type: 'app_loaded', context: { nodes: nodes.length } });
-  }, [trackAction]);
-
   const handleDelete = () => {
     if (selectedNodeId) {
       removeNode(selectedNodeId);
       showToast('Nó excluído com sucesso', 'success');
+    } else if (selectedConnectionId) {
+      removeConnection(selectedConnectionId);
+      setSelectedConnectionId(null);
+      showToast('Conexão excluída com sucesso', 'success');
     }
   };
 
-  const handleAddNode = useCallback((type: NodeType) => {
-    const rect = canvasContainerRef.current?.getBoundingClientRect();
-    const viewportWidth = rect?.width ?? window.innerWidth;
-    const viewportHeight = rect?.height ?? window.innerHeight;
-
-    const defaultSize = NODE_DEFAULT_SIZE[type];
-    const centerX = ((viewportWidth / 2) - pan.x) / zoom - defaultSize.width / 2;
-    const centerY = ((viewportHeight / 2) - pan.y) / zoom - defaultSize.height / 2;
-
-    addNode(type, { x: centerX, y: centerY });
-    trackAction({ type: 'node_added', context: { nodeType: type } });
-  }, [addNode, pan.x, pan.y, trackAction, zoom]);
+  const handleAddNode = (type: string) => {
+    const centerX = 400; // Posição fixa central
+    const centerY = 300;
+    addNode(type as any, { x: centerX, y: centerY });
+  };
 
   const handleMoveNode = (dx: number, dy: number) => {
     if (selectedNodeId) {
@@ -105,7 +132,6 @@ const App: React.FC = () => {
           x: node.position.x + dx,
           y: node.position.y + dy
         });
-        trackAction({ type: 'node_moved', context: { nodeId: selectedNodeId } });
       }
     }
   };
@@ -149,12 +175,8 @@ const App: React.FC = () => {
   };
 
   const handleExport = () => {
-    const success = exportAsJSON();
-    if (success) {
-      showToast('Fluxograma exportado com sucesso!', 'success');
-    } else {
-      showToast('Erro ao exportar fluxograma', 'error');
-    }
+    exportAsJSON();
+    showToast('Fluxograma exportado com sucesso!', 'success');
   };
 
   const handleExportSVG = () => {
@@ -175,12 +197,17 @@ const App: React.FC = () => {
       if (file) {
         const reader = new FileReader();
         reader.onload = (event) => {
-          const content = event.target?.result as string;
-          const success = importFromJSON(content);
-          if (success) {
-            showToast('Fluxograma importado com sucesso!', 'success');
-          } else {
-            showToast('Arquivo JSON inválido', 'error');
+          try {
+            const data = JSON.parse(event.target?.result as string);
+            if (data.nodes && data.connections) {
+              applyFlow(data);
+              showToast('Fluxograma importado com sucesso!', 'success');
+            } else {
+              showToast('Arquivo JSON inválido', 'error');
+            }
+          } catch (error) {
+            console.error('Error importing file:', error);
+            showToast('Erro ao importar arquivo', 'error');
           }
         };
         reader.readAsText(file);
@@ -238,24 +265,9 @@ const App: React.FC = () => {
   };
 
   const handleApplyAIFlow = (flow: AIParsedFlow) => {
-    const applied = applyFlow(flow);
-    if (applied) {
-      showToast('Fluxograma gerado pela IA aplicado!', 'success');
-    } else {
-      showToast('Fluxograma gerado pela IA inválido', 'error');
-    }
+    applyFlow(flow);
+    showToast('Fluxograma gerado pela IA aplicado!', 'success');
   };
-
-  const handleApplyOptimization = useCallback((suggestion: OptimizationSuggestion) => {
-    showToast('Sugestão aplicada ao fluxo (visualização).', 'info');
-    trackAction({ type: 'optimization_applied', context: { suggestionId: suggestion.id } });
-  }, [showToast, trackAction]);
-
-  const handleApplySmartSuggestion = useCallback((suggestion: Suggestion) => {
-    showToast(`Sugestão aplicada: ${suggestion.title}`, 'success');
-    dismissSuggestion(suggestion.id);
-    trackAction({ type: 'suggestion_applied', context: { suggestionId: suggestion.id } });
-  }, [dismissSuggestion, showToast, trackAction]);
 
   const handleClearCanvas = () => {
     if (nodes.length > 0 && !confirm('Tem certeza que deseja limpar o canvas? Esta ação não pode ser desfeita.')) {
@@ -276,6 +288,70 @@ const App: React.FC = () => {
     }
   };
 
+  const handleConnectionClick = (connectionId: string, position: { x: number; y: number }) => {
+    // Converte a posição do canvas para a tela considerando zoom e pan
+    const screenX = position.x * zoom + pan.x;
+    const screenY = position.y * zoom + pan.y;
+    
+    setConnectionMenu({
+      connectionId,
+      position: { x: screenX, y: screenY }
+    });
+  };
+
+  const handleSetConnectionLabel = (label: string | undefined) => {
+    if (connectionMenu) {
+      updateConnectionLabel(connectionMenu.connectionId, label);
+      showToast(
+        label ? `Label "${label}" adicionada à conexão` : 'Label removida da conexão',
+        'success'
+      );
+    }
+  };
+
+  // Handlers do Connection Toolbar
+  const handleStyleChange = (newStyle: typeof connectionStyle) => {
+    updateGlobalConnectionStyle(newStyle);
+    if (selectedConnectionId) {
+      // Aplica o estilo à conexão selecionada
+      updateConnectionStyle(selectedConnectionId, newStyle);
+      showToast('Estilo atualizado para a conexão selecionada', 'success');
+    }
+  };
+
+  const handleApplyStyleToAll = () => {
+    applyStyleToAllConnections(connectionStyle);
+    showToast(`Estilo aplicado a ${connections.length} conexões`, 'success');
+  };
+
+  const handleResetAllStyles = () => {
+    const defaultStyle = {
+      type: 'elbow' as const,
+      color: '#3B82F6',
+      strokeWidth: 2,
+      dashed: false,
+      curvature: 0.5
+    };
+    updateGlobalConnectionStyle(defaultStyle);
+    applyStyleToAllConnections(defaultStyle);
+    showToast('Estilos redefinidos para o padrão', 'success');
+  };
+
+  const handleConnectionSelect = (connectionId: string) => {
+    setSelectedConnectionId(connectionId);
+    selectNode(null); // Desseleciona nó quando seleciona conexão
+    
+    // Atualiza o estilo global com o estilo da conexão selecionada
+    const connection = connections.find(c => c.id === connectionId);
+    if (connection?.style) {
+      updateGlobalConnectionStyle(connection.style);
+    }
+  };
+
+  const handleUpdateConnectionPoints = (connectionId: string, points: { x: number; y: number }[]) => {
+    updateConnectionPoints(connectionId, points);
+  };
+
   // Oculta a dica após 8 segundos
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -283,6 +359,27 @@ const App: React.FC = () => {
     }, 8000);
     return () => clearTimeout(timer);
   }, []);
+
+  // 🔧 Corrige automaticamente o tamanho dos nós de decisão existentes
+  useEffect(() => {
+    let hasUpdates = false;
+    nodes.forEach(node => {
+      // Corrige nós de decisão
+      if (node.type === 'decision' && (node.width < 180 || node.height < 180)) {
+        resizeNode(node.id, { width: 180, height: 180 });
+        hasUpdates = true;
+      }
+      // Corrige nós de início e fim
+      else if ((node.type === 'start' || node.type === 'end') && (node.width < 160 || node.height < 160)) {
+        resizeNode(node.id, { width: 160, height: 160 });
+        hasUpdates = true;
+      }
+    });
+    if (hasUpdates) {
+      console.log('✅ Nós atualizados para os novos tamanhos (Decisão: 180x180, Início/Fim: 160x160)');
+      showToast('✨ Nós atualizados!', 'info');
+    }
+  }, [nodes, resizeNode, showToast]); // Monitora mudanças nos nós
 
   useKeyboardShortcuts({
     onUndo: undo,
@@ -300,7 +397,9 @@ const App: React.FC = () => {
     onExport: handleExport,
     onImport: handleImport,
     onShowHelp: () => setShowHelp(true),
+    onToggleFixed: toggleSelectedNodesFixed, // 🆕 Tecla F para fixar/desfixar
     selectedNodeId,
+    selectedConnectionId, // Adicionado
     hasTemporaryConnection: !!temporaryConnection,
     canUndo,
     canRedo,
@@ -309,9 +408,11 @@ const App: React.FC = () => {
   return (
     <div className={`h-screen flex flex-col ${theme === 'dark' ? 'bg-[#1E1E1E]' : 'bg-white'}`}>
       <Toolbar
-        onAddNode={handleAddNode}
+        onAddNode={(type, position) => addNode(type, position)}
         onRemoveNode={handleDelete}
         selectedNodeId={selectedNodeId}
+        selectedContainerId={selectedContainerId}
+        selectedConnectionId={selectedConnectionId}
         zoom={zoom}
         onZoomIn={zoomIn}
         onZoomOut={zoomOut}
@@ -323,65 +424,97 @@ const App: React.FC = () => {
         onAIClick={() => setShowAIModal(true)}
         onClearCanvas={handleClearCanvas}
         onExportJSON={exportAsJSON}
-        onExportSVG={handleExportSVG}
+        onExportSVG={exportAsSVG}
         onImportJSON={handleImport}
         onImportSVG={handleImportSVG}
         onCopyToFigma={handleCopyToFigma}
         theme={theme}
         onToggleTheme={toggleTheme}
-        isAnalysisEnabled={ADVANCED_FEATURES.performance.enabled}
-        isAnalysisOpen={showPerformanceDashboard}
-        onToggleAnalysis={() => setShowPerformanceDashboard(prev => !prev)}
+        onAddContainer={addContainer}
+        onRemoveContainer={() => selectedContainerId && removeContainer(selectedContainerId)}
+        onToggleContainerCollapse={() => selectedContainerId && toggleContainerCollapse(selectedContainerId)}
+        onConnectionStyleClick={() => setShowConnectionToolbar(!showConnectionToolbar)}
+        onContainerLayersClick={() => setShowContainerToolbar(!showContainerToolbar)}
+      />
+      
+      <Canvas
+        nodes={nodes}
+        connections={connections}
+        containers={containers}
+        selectedNodeId={selectedNodeId}
+        selectedNodeIds={selectedNodeIds} // 🆕 Multi-seleção
+        selectedContainerId={selectedContainerId}
+        selectedConnectionId={selectedConnectionId}
+        temporaryConnection={temporaryConnection}
+        zoom={zoom}
+        pan={pan}
+        onNodeSelect={selectNode}
+        onToggleNodeSelection={toggleNodeSelection} // 🆕 Multi-seleção
+        onContainerSelect={selectContainer}
+        onConnectionSelect={handleConnectionSelect}
+        onNodeMove={updateNodePosition}
+        onMoveMultiple={updateMultipleNodesPosition} // 🆕 Arraste múltiplo
+        onClearMultiDrag={clearMultiDragPositions} // 🆕 Limpa posições do arraste
+        onNodeTextChange={updateNodeText}
+        onStartConnection={startConnection}
+        onUpdateTemporaryConnection={updateTemporaryConnection}
+        onEndConnection={endConnection}
+        onNodeResize={resizeNode}
+        onContainerMove={updateContainerPosition}
+        onContainerResize={updateContainerSize}
+        onToggleContainerCollapse={toggleContainerCollapse}
+        onContainerRename={renameContainer}
+        onConnectionClick={handleConnectionClick}
+        onUpdateConnectionPoints={handleUpdateConnectionPoints}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onWheel={handleWheel}
+        theme={theme}
       />
 
-      {adaptiveUI.showTutorials && (
-        <div className="advanced-controls">
-          <span className="helper-pill">Modo guiado</span>
+      {/* Menu contextual de conexões */}
+      {connectionMenu && (
+        <ConnectionContextMenu
+          position={connectionMenu.position}
+          currentLabel={connections.find(c => c.id === connectionMenu.connectionId)?.label}
+          onSetLabel={handleSetConnectionLabel}
+          onClose={() => setConnectionMenu(null)}
+          theme={theme}
+        />
+      )}
+
+      {/* Toolbar de Estilos de Conexões */}
+      {showConnectionToolbar && (
+        <div className="fixed top-20 right-4 z-50">
+          <ConnectionToolbar
+            style={connectionStyle}
+            onStyleChange={handleStyleChange}
+            onApplyToAll={handleApplyStyleToAll}
+            onResetAll={handleResetAllStyles}
+            onClose={() => setShowConnectionToolbar(false)}
+            selectedConnectionId={selectedConnectionId}
+            theme={theme}
+          />
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 relative" ref={canvasContainerRef}>
-          <Canvas
-            nodes={nodes}
-            connections={connections}
-            selectedNodeId={selectedNodeId}
-            temporaryConnection={temporaryConnection}
-            zoom={zoom}
-            pan={pan}
-            onNodeSelect={selectNode}
-            onNodeMove={updateNodePosition}
-            onNodeTextChange={updateNodeText}
-            onStartConnection={startConnection}
-            onUpdateTemporaryConnection={updateTemporaryConnection}
-            onEndConnection={endConnection}
-            onConnectionLabelToggle={toggleConnectionLabel}
-            onNodeResize={resizeNode}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onWheel={handleWheel}
-            theme={theme}
-          />
-
-          <SmartSuggestions
-            suggestions={suggestions}
-            onApply={handleApplySmartSuggestion}
-            onDismiss={dismissSuggestion}
-            theme={theme}
+      {/* Toolbar de Controle de Camadas de Containers */}
+      {showContainerToolbar && (
+        <div className="fixed top-20 left-4 z-50">
+          <ContainerToolbar
+            containers={containers}
+            selectedContainerId={selectedContainerId}
+            onRemoveContainer={removeContainer}
+            onBringToFront={bringToFront}
+            onSendToBack={sendToBack}
+            onMoveUp={moveUp}
+            onMoveDown={moveDown}
+            onToggleLock={toggleContainerLock}
+            onClose={() => setShowContainerToolbar(false)}
           />
         </div>
-        {showPerformanceDashboard && (
-          <div className={`performance-sidebar ${theme}`}>
-            <PerformanceDashboard
-              nodes={nodes}
-              connections={connections}
-              theme={theme}
-              onApplyOptimization={handleApplyOptimization}
-            />
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Status Bar */}
       <div className={`${theme === 'dark' ? 'bg-[#2C2C2C] border-[#3C3C3C] text-gray-300' : 'bg-white border-gray-200 text-gray-600'} border-t px-4 py-2 text-sm flex justify-between items-center`}>
@@ -410,11 +543,12 @@ const App: React.FC = () => {
       </div>
 
       {/* Modais */}
-      <AIModal
+      <AIModalEnhanced
         isOpen={showAIModal}
         onClose={() => setShowAIModal(false)}
         onApplyFlow={handleApplyAIFlow}
         theme={theme}
+        existingNodes={nodes}
       />
 
       <HelpModal 
@@ -435,9 +569,11 @@ const App: React.FC = () => {
           <div className="flex items-center space-x-3">
             <span className="text-2xl">⌨️</span>
             <div>
-              <div className="font-semibold">💡 Dica Importante!</div>
+              <div className="font-semibold">💡 Dicas Importantes!</div>
               <div className="text-sm text-purple-200">
-                Segure <strong className="text-white">SHIFT</strong> e clique para arrastar os nós com o mouse! 🖱️
+                <strong className="text-white">SHIFT + Clique:</strong> Labels Sim/Não nos hooks 🔗 | 
+                <strong className="text-white"> DEL:</strong> Apague nós/hooks 🗑️ | 
+                Containers conectam como nós 📦
               </div>
             </div>
             <button
@@ -450,6 +586,14 @@ const App: React.FC = () => {
         </div>
       )}
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <FlowchartErrorBoundary>
+      <AppContent />
+    </FlowchartErrorBoundary>
   );
 };
 

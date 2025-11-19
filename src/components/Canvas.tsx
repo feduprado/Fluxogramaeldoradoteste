@@ -1,24 +1,40 @@
-import React, { useRef, useEffect, useMemo, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { FlowNode, Connection } from '../types';
+import { Container as ContainerType } from '../types/container';
 import { FlowchartNode } from './FlowchartNode';
 import { Connection as ConnectionComponent } from './Connection';
+import { Container } from './Container';
 import { Theme } from '../hooks/useTheme';
 
 interface CanvasProps {
   nodes: FlowNode[];
   connections: Connection[];
+  containers: ContainerType[];
   selectedNodeId: string | null;
+  selectedNodeIds?: string[]; // 🆕 Multi-seleção
+  selectedContainerId: string | null;
   temporaryConnection: { fromNodeId: string; x: number; y: number } | null;
   zoom: number;
   pan: { x: number; y: number };
   onNodeSelect: (nodeId: string | null) => void;
+  onToggleNodeSelection?: (nodeId: string, isShiftPressed: boolean) => void; // 🆕
   onNodeMove: (nodeId: string, newPosition: { x: number; y: number }) => void;
+  onMoveMultiple?: (nodeIds: string[], delta: { x: number; y: number }) => void; // 🆕 Arraste múltiplo COM DELTA
+  onClearMultiDrag?: () => void; // 🆕 Limpa posições do arraste
+  onContainerSelect: (containerId: string | null) => void;
   onNodeTextChange: (nodeId: string, newText: string) => void;
   onStartConnection: (nodeId: string) => void;
   onUpdateTemporaryConnection: (x: number, y: number) => void;
   onEndConnection: (nodeId: string) => void;
-  onConnectionLabelToggle: (connectionId: string) => void;
   onNodeResize: (nodeId: string, newSize: { width: number; height: number }) => void;
+  onContainerMove: (containerId: string, newPosition: { x: number; y: number }) => void;
+  onContainerResize: (containerId: string, newSize: { width: number; height: number }) => void;
+  onToggleContainerCollapse: (containerId: string) => void;
+  onContainerRename?: (containerId: string, newName: string) => void;
+  onConnectionClick?: (connectionId: string, position: { x: number; y: number }) => void;
+  onConnectionSelect?: (connectionId: string) => void;
+  onUpdateConnectionPoints?: (connectionId: string, points: { x: number; y: number }[]) => void;
+  selectedConnectionId?: string | null;
   onMouseDown: (e: React.MouseEvent) => void;
   onMouseMove: (e: MouseEvent) => void;
   onMouseUp: () => void;
@@ -29,18 +45,32 @@ interface CanvasProps {
 export const Canvas: React.FC<CanvasProps> = ({
   nodes,
   connections,
+  containers,
   selectedNodeId,
+  selectedNodeIds = [], // 🆕
+  selectedContainerId,
   temporaryConnection,
   zoom,
   pan,
   onNodeSelect,
+  onToggleNodeSelection, // 🆕
   onNodeMove,
+  onMoveMultiple, // 🆕 Arraste múltiplo COM DELTA
+  onClearMultiDrag, // 🆕 Limpa posições do arraste
+  onContainerSelect,
   onNodeTextChange,
   onStartConnection,
   onUpdateTemporaryConnection,
   onEndConnection,
-  onConnectionLabelToggle,
   onNodeResize,
+  onContainerMove,
+  onContainerResize,
+  onToggleContainerCollapse,
+  onContainerRename,
+  onConnectionClick,
+  onConnectionSelect,
+  onUpdateConnectionPoints,
+  selectedConnectionId,
   onMouseDown,
   onMouseMove,
   onMouseUp,
@@ -48,37 +78,6 @@ export const Canvas: React.FC<CanvasProps> = ({
   theme,
 }) => {
   const canvasRef = useRef<HTMLDivElement>(null);
-  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
-
-  useEffect(() => {
-    if (!canvasRef.current) {
-      return;
-    }
-
-    const updateViewportSize = () => {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (rect) {
-        setViewportSize({ width: rect.width, height: rect.height });
-      }
-    };
-
-    updateViewportSize();
-
-    if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(entries => {
-        const entry = entries[0];
-        setViewportSize({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        });
-      });
-      observer.observe(canvasRef.current);
-      return () => observer.disconnect();
-    }
-
-    window.addEventListener('resize', updateViewportSize);
-    return () => window.removeEventListener('resize', updateViewportSize);
-  }, []);
 
   useEffect(() => {
     document.addEventListener('mousemove', onMouseMove);
@@ -89,68 +88,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       document.removeEventListener('mouseup', onMouseUp);
     };
   }, [onMouseMove, onMouseUp]);
-
-  const viewportBounds = useMemo(() => {
-    if (!viewportSize.width || !viewportSize.height) {
-      return null;
-    }
-
-    const left = -pan.x / zoom;
-    const top = -pan.y / zoom;
-    const right = left + viewportSize.width / zoom;
-    const bottom = top + viewportSize.height / zoom;
-
-    return { left, right, top, bottom };
-  }, [pan.x, pan.y, zoom, viewportSize.height, viewportSize.width]);
-
-  const visibleNodes = useMemo(() => {
-    if (!viewportBounds) {
-      return nodes;
-    }
-
-    const margin = 200; // Renderiza nós próximos ao viewport para uma transição suave
-    return nodes.filter(node => {
-      const nodeLeft = node.position.x - margin;
-      const nodeTop = node.position.y - margin;
-      const nodeRight = node.position.x + node.width + margin;
-      const nodeBottom = node.position.y + node.height + margin;
-
-      return (
-        nodeRight >= viewportBounds.left &&
-        nodeLeft <= viewportBounds.right &&
-        nodeBottom >= viewportBounds.top &&
-        nodeTop <= viewportBounds.bottom
-      );
-    });
-  }, [nodes, viewportBounds]);
-
-  const visibleNodeIds = useMemo(() => new Set(visibleNodes.map(node => node.id)), [visibleNodes]);
-
-  const visibleConnections = useMemo(() => {
-    if (!viewportBounds) {
-      return connections;
-    }
-
-    return connections.filter(connection =>
-      visibleNodeIds.has(connection.fromNodeId) ||
-      visibleNodeIds.has(connection.toNodeId)
-    );
-  }, [connections, visibleNodeIds, viewportBounds]);
-
-  const backgroundStyle = useMemo((): React.CSSProperties => {
-    const isDark = theme === 'dark';
-    const baseColor = isDark ? '#0f172a' : '#f8fafc';
-    const lineColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.08)';
-
-    return {
-      backgroundColor: baseColor,
-      backgroundImage: `
-        linear-gradient(${lineColor} 1px, transparent 1px),
-        linear-gradient(90deg, ${lineColor} 1px, transparent 1px)
-      `,
-      backgroundSize: '48px 48px',
-    };
-  }, [theme]);
 
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
     // Permite pan com botão do meio (1) ou botão esquerdo no background
@@ -213,40 +150,35 @@ export const Canvas: React.FC<CanvasProps> = ({
           transformOrigin: '0 0',
         }}
       >
-        {/* Fundo com grid leve que acompanha o pan/zoom */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 pointer-events-none select-none"
-          style={{
-            ...backgroundStyle,
-            zIndex: 0,
-          }}
-        />
+        {/* Fundo branco - sem grid */}
 
         {/* SVG para conexões */}
-        <svg
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            width: '100%',
+        <svg 
+          className="absolute inset-0 pointer-events-none" 
+          style={{ 
+            width: '100%', 
             height: '100%',
-            overflow: 'visible',
-            zIndex: 1,
+            overflow: 'visible'
           }}
         >
           {/* Conexões permanentes */}
-          {visibleConnections.map(connection => {
-            const fromNode = nodes.find(n => n.id === connection.fromNodeId);
-            const toNode = nodes.find(n => n.id === connection.toNodeId);
-
+          {connections.map(conn => {
+            const fromNode = nodes.find(n => n.id === conn.fromNodeId);
+            const toNode = nodes.find(n => n.id === conn.toNodeId);
             if (!fromNode || !toNode) return null;
 
             return (
               <ConnectionComponent
-                key={connection.id}
-                connection={connection}
+                key={conn.id}
+                connection={conn}
                 fromNode={fromNode}
                 toNode={toNode}
-                onToggleLabel={onConnectionLabelToggle}
+                isSelected={conn.id === selectedConnectionId}
+                onSelect={onConnectionSelect}
+                onUpdatePoints={onUpdateConnectionPoints}
+                onClick={onConnectionClick}
+                zoom={zoom}
+                pan={pan}
               />
             );
           })}
@@ -288,23 +220,125 @@ export const Canvas: React.FC<CanvasProps> = ({
           </defs>
         </svg>
 
-        {/* Nós do fluxograma */}
-        {visibleNodes.map(node => (
-          <FlowchartNode
-            key={node.id}
-            node={node}
-            isSelected={selectedNodeId === node.id}
-            onSelect={onNodeSelect}
-            onMove={onNodeMove}
-            onTextChange={onNodeTextChange}
+        {/* Contêineres (renderizados ANTES dos nós para ficarem no fundo) */}
+        {containers.map(container => (
+          <Container
+            key={container.id}
+            container={container}
+            isSelected={selectedContainerId === container.id}
+            onSelect={onContainerSelect}
+            onMove={onContainerMove}
+            onResize={onContainerResize}
+            onToggleCollapse={onToggleContainerCollapse}
+            onRename={onContainerRename}
             onStartConnection={onStartConnection}
             onEndConnection={onEndConnection}
-            onResize={onNodeResize}
+            isConnecting={!!temporaryConnection}
             zoom={zoom}
             pan={pan}
-            isConnecting={!!temporaryConnection && temporaryConnection.fromNodeId !== node.id}
           />
         ))}
+
+        {/* Nós do fluxograma (renderizados DEPOIS dos containers para ficarem na frente) */}
+        {nodes.map(node => {
+          // 🆕 Verifica se o nó está selecionado (único OU multi-seleção)
+          const isNodeSelected = selectedNodeId === node.id || selectedNodeIds.includes(node.id);
+          
+          return (
+            <FlowchartNode
+              key={node.id}
+              node={node}
+              isSelected={isNodeSelected}
+              onSelect={onNodeSelect}
+              onToggleSelection={onToggleNodeSelection} // 🆕 Multi-seleção
+              onMove={onNodeMove}
+              onMoveMultiple={onMoveMultiple} // 🆕 Arraste múltiplo COM DELTA
+              onClearMultiDrag={onClearMultiDrag} // 🆕 Limpa posições originais
+              selectedNodeIds={selectedNodeIds} // 🆕 Passar IDs selecionados
+              onTextChange={onNodeTextChange}
+              onStartConnection={onStartConnection}
+              onEndConnection={onEndConnection}
+              onResize={onNodeResize}
+              zoom={zoom}
+              theme={theme}
+              containers={containers}
+              temporaryConnection={temporaryConnection} // 🆕 Para detectar modo de conexão
+            />
+          );
+        })}
+
+        {/* SVG para labels das conexões - SEMPRE NO TOPO */}
+        <svg 
+          className="absolute inset-0 pointer-events-none" 
+          style={{ 
+            width: '100%', 
+            height: '100%',
+            overflow: 'visible',
+            zIndex: 10000
+          }}
+        >
+          {/* Renderiza APENAS os labels (S/N) das conexões com label */}
+          {connections.filter(conn => conn.label).map(conn => {
+            const fromNode = nodes.find(n => n.id === conn.fromNodeId);
+            const toNode = nodes.find(n => n.id === conn.toNodeId);
+            if (!fromNode || !toNode) return null;
+
+            // Calcula posição do label
+            const points = conn.points || [
+              { x: fromNode.position.x + fromNode.width / 2, y: fromNode.position.y + fromNode.height / 2 },
+              { x: (fromNode.position.x + fromNode.width / 2 + toNode.position.x + toNode.width / 2) / 2, y: fromNode.position.y + fromNode.height / 2 },
+              { x: (fromNode.position.x + fromNode.width / 2 + toNode.position.x + toNode.width / 2) / 2, y: toNode.position.y + toNode.height / 2 },
+              { x: toNode.position.x + toNode.width / 2, y: toNode.position.y + toNode.height / 2 }
+            ];
+            const labelPosition = points[Math.floor(points.length / 2)] || points[0];
+            
+            const isSimBranch = conn.label === 'Sim';
+            const isNaoBranch = conn.label === 'Não';
+            const connectionColor = isSimBranch ? '#10B981' : isNaoBranch ? '#EF4444' : '#3B82F6';
+
+            return (
+              <g key={`label-${conn.id}`}>
+                {/* Fundo do label com borda para destaque */}
+                <circle
+                  cx={labelPosition.x}
+                  cy={labelPosition.y}
+                  r="18"
+                  fill="white"
+                  stroke={connectionColor}
+                  strokeWidth={3}
+                  style={{ 
+                    pointerEvents: 'none',
+                    filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3))'
+                  }}
+                />
+                {/* Círculo interno colorido */}
+                <circle
+                  cx={labelPosition.x}
+                  cy={labelPosition.y}
+                  r="15"
+                  fill={connectionColor}
+                  style={{ pointerEvents: 'none' }}
+                />
+                {/* Texto do label */}
+                <text
+                  x={labelPosition.x}
+                  y={labelPosition.y}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fill="white"
+                  fontSize="14"
+                  fontWeight="bold"
+                  style={{ 
+                    pointerEvents: 'none',
+                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
+                  }}
+                >
+                  {conn.label === 'Sim' ? 'S' : conn.label === 'Não' ? 'N' : conn.label}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
       </div>
 
       {/* Overlay de instruções quando não há nós */}
@@ -338,7 +372,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       {/* Contador de nós e conexões */}
       <div className="absolute top-4 right-4 bg-black/80 text-white text-xs rounded-lg px-3 py-2 pointer-events-none">
         {nodes.length} nós • {connections.length} conexões
-        {selectedNodeId && ' • Nó selecionado'}
+        {selectedNodeIds.length > 0 && ` • ${selectedNodeIds.length} selecionado${selectedNodeIds.length > 1 ? 's' : ''}`}
       </div>
     </div>
   );

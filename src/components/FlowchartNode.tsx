@@ -1,41 +1,57 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { FlowNode } from '../types';
+import { FlowNode, HookDirection } from '../types';
+import { getHookPosition, getDefaultNodeHooks, HOOK_SIZE } from '../utils/hookPositions';
+import { HookColorSystem } from '../services/hookColorSystem';
 
 interface FlowchartNodeProps {
   node: FlowNode;
   isSelected: boolean;
   onSelect: (nodeId: string) => void;
+  onToggleSelection?: (nodeId: string, isShiftPressed: boolean) => void; // 🆕 Multi-seleção
   onMove: (nodeId: string, newPosition: { x: number; y: number }) => void;
+  onMoveMultiple?: (nodeIds: string[], delta: { x: number; y: number }) => void; // 🆕 Arraste múltiplo COM DELTA
+  onClearMultiDrag?: () => void; // 🆕 Limpa posições originais
+  selectedNodeIds?: string[]; // 🆕 Para saber quais nós estão selecionados
   onTextChange: (nodeId: string, newText: string) => void;
   onStartConnection: (nodeId: string) => void;
   onEndConnection: (nodeId: string) => void;
   onResize: (nodeId: string, newSize: { width: number; height: number }) => void;
   zoom: number;
-  pan: { x: number; y: number };
-  isConnecting?: boolean;
+  theme: Theme;
+  containers: Container[];
+  temporaryConnection?: { fromNodeId: string; x: number; y: number } | null; // 🆕 Para detectar conexões
 }
 
-export const FlowchartNode: React.FC<FlowchartNodeProps> = React.memo(({
+export const FlowchartNode: React.FC<FlowchartNodeProps> = React.memo((({
   node,
   isSelected,
   onSelect,
+  onToggleSelection, // 🆕
   onMove,
+  onMoveMultiple, // 🆕
+  onClearMultiDrag, // 🆕
+  selectedNodeIds, // 🆕
   onTextChange,
   onStartConnection,
   onEndConnection,
   onResize,
   zoom,
-  pan,
-  isConnecting,
+  theme,
+  containers,
+  temporaryConnection, // 🆕
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState(node.text);
   const [isDragging, setIsDragging] = useState(false);
+  const [isHovered, setIsHovered] = useState(false); // Estado para hover
   const nodeRef = useRef<HTMLDivElement>(null);
   const dragStart = useRef({ x: 0, y: 0 });
   const originalPos = useRef({ x: 0, y: 0 });
   const animationFrameRef = useRef<number | null>(null);
   const lastMousePos = useRef({ x: 0, y: 0 });
+
+  // 🆕 Calcula se está em modo de conexão
+  const isConnecting = temporaryConnection !== null && temporaryConnection !== undefined;
 
   const getNodeStyle = useCallback((): React.CSSProperties => {
     const baseStyle: React.CSSProperties = {
@@ -44,7 +60,6 @@ export const FlowchartNode: React.FC<FlowchartNodeProps> = React.memo(({
       height: node.height,
       left: node.position.x,
       top: node.position.y,
-      zIndex: 2,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -90,10 +105,20 @@ export const FlowchartNode: React.FC<FlowchartNodeProps> = React.memo(({
       case 'decision':
         return {
           ...baseStyle,
+          // Força losango perfeito usando o menor valor entre width e height
+          width: Math.min(node.width, node.height),
+          height: Math.min(node.width, node.height),
           backgroundColor: '#F59E0B',
-          borderColor: '#D97706',
+          borderColor: '#B45309',
+          border: 'none', // Remove border porque clipPath corta
           clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
           color: 'white',
+          // Usa box-shadow para criar borda que não é cortada pelo clipPath
+          boxShadow: `
+            0 4px 6px -1px rgba(0, 0, 0, 0.1), 
+            0 2px 4px -1px rgba(0, 0, 0, 0.06),
+            inset 0 0 0 3px #B45309
+          `,
         };
       default:
         return {
@@ -108,25 +133,31 @@ export const FlowchartNode: React.FC<FlowchartNodeProps> = React.memo(({
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     // Se clicou no botão de conexão, não inicia o arrasto
-    if ((e.target as HTMLElement).closest('button[data-connection="true"]')) {
+    if ((e.target as HTMLElement).closest('button[data-connection=\"true\"]')) {
       return;
     }
     
     if (isEditing) return;
+    
+    // 🆕 Multi-seleção com Shift+Click
+    if (onToggleSelection) {
+      console.log('🎯 FlowchartNode chamando onToggleSelection:', node.id, 'Shift:', e.shiftKey);
+      onToggleSelection(node.id, e.shiftKey);
+    } else {
+      onSelect(node.id);
+    }
     
     // ⚡ NOVO: Só permite arrastar se Shift estiver pressionado
     if (!e.shiftKey) {
       // Apenas seleciona o nó sem arrastar
       e.stopPropagation();
       e.preventDefault();
-      onSelect(node.id);
       return;
     }
     
     // Shift está pressionado - inicia arraste
     e.stopPropagation();
     e.preventDefault(); // Previne seleção de texto e outros comportamentos
-    onSelect(node.id);
     setIsDragging(true);
     
     dragStart.current = {
@@ -148,12 +179,20 @@ export const FlowchartNode: React.FC<FlowchartNodeProps> = React.memo(({
       const deltaX = (me.clientX - dragStart.current.x) / zoom;
       const deltaY = (me.clientY - dragStart.current.y) / zoom;
 
-      const newPosition = {
-        x: originalPos.current.x + deltaX,
-        y: originalPos.current.y + deltaY,
-      };
+      // 🆕 ARRASTE MÚLTIPLO: Se há múltiplos nós selecionados, move todos juntos
+      if (selectedNodeIds && selectedNodeIds.length > 1 && onMoveMultiple) {
+        // Passa o delta TOTAL desde o início do arraste
+        console.log('📍 Movendo múltiplos - Delta total:', { deltaX, deltaY });
+        onMoveMultiple(selectedNodeIds, { x: deltaX, y: deltaY });
+      } else {
+        // Arraste simples de um único nó
+        const newPosition = {
+          x: originalPos.current.x + deltaX,
+          y: originalPos.current.y + deltaY,
+        };
 
-      onMove(node.id, newPosition);
+        onMove(node.id, newPosition);
+      }
     };
 
     const upHandler = () => {
@@ -165,6 +204,11 @@ export const FlowchartNode: React.FC<FlowchartNodeProps> = React.memo(({
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       
+      // 🆕 Limpa posições originais do arraste múltiplo
+      if (onClearMultiDrag) {
+        onClearMultiDrag();
+      }
+      
       // Salva no histórico após finalizar o arraste
       if (typeof (onResize as any).savePositionToHistory === 'function') {
         (onResize as any).savePositionToHistory();
@@ -175,7 +219,7 @@ export const FlowchartNode: React.FC<FlowchartNodeProps> = React.memo(({
     document.addEventListener('mouseup', upHandler);
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
-  }, [node.id, node.position, isEditing, onSelect, zoom, onMove, onResize]);
+  }, [node.id, node.position, isEditing, onSelect, zoom, onMove, onResize, onToggleSelection, onMoveMultiple, onClearMultiDrag, selectedNodeIds]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -208,16 +252,34 @@ export const FlowchartNode: React.FC<FlowchartNodeProps> = React.memo(({
     if (isDragging) {
       style.opacity = 0.9;
       style.transform = 'scale(1.05)';
-      style.zIndex = 1000;
+      style.zIndex = 1000; // Máxima prioridade quando arrastando
       style.cursor = 'grabbing';
     } else if (isSelected) {
       style.outline = '2px solid #60A5FA';
       style.outlineOffset = '2px';
-      style.zIndex = 100;
+      style.zIndex = 100; // Alta prioridade quando selecionado
+    } else if (isHovered && !isEditing) {
+      // Efeito de hover em todos os nós
+      style.transform = 'scale(1.03)';
+      style.zIndex = 75;
+      
+      // Para o nó de decisão, intensifica a borda interna no hover
+      if (node.type === 'decision') {
+        style.boxShadow = `
+          0 8px 12px -2px rgba(0, 0, 0, 0.2), 
+          0 4px 8px -2px rgba(0, 0, 0, 0.1),
+          inset 0 0 0 4px #D97706
+        `;
+      } else {
+        style.boxShadow = '0 8px 12px -2px rgba(0, 0, 0, 0.2), 0 4px 8px -2px rgba(0, 0, 0, 0.1)';
+      }
+    } else {
+      // ⚡ IMPORTANTE: zIndex base para garantir que nodes fiquem SEMPRE acima de containers
+      style.zIndex = 50; // Containers têm zIndex 1-10, então 50 garante que nodes ficam acima
     }
     
     return style;
-  }, [getNodeStyle, isDragging, isSelected]);
+  }, [getNodeStyle, isDragging, isSelected, isHovered, isEditing, node.type]);
 
   const contentStyle = useMemo((): React.CSSProperties => {
     return node.type === 'decision' 
@@ -239,109 +301,222 @@ export const FlowchartNode: React.FC<FlowchartNodeProps> = React.memo(({
         };
   }, [node.type]);
 
+  // 🔧 WRAPPER STYLE: Container absoluto que envolve tudo (sem clipPath)
+  const wrapperStyle: React.CSSProperties = {
+    position: 'absolute',
+    left: node.position.x,
+    top: node.position.y,
+    width: node.width,
+    height: node.height,
+    pointerEvents: 'none', // Não interfere nos eventos
+  };
+
   return (
-    <div
-      ref={nodeRef}
-      style={nodeStyle}
-      onMouseDown={handleMouseDown}
-      onDoubleClick={handleDoubleClick}
-    >
-      <div style={{
-        ...contentStyle,
-        pointerEvents: isEditing ? 'auto' : 'none',
-      }}>
-        {isEditing ? (
-          <input
-            type="text"
-            value={editedText}
-            onChange={(e) => setEditedText(e.target.value)}
-            onBlur={handleTextSubmit}
-            onKeyDown={handleKeyPress}
-            style={{
-              width: '90%',
-              background: 'transparent',
-              border: 'none',
-              outline: 'none',
-              color: 'white',
+    <div style={wrapperStyle}>
+      {/* NODE PRINCIPAL com clipPath */}
+      <div
+        ref={nodeRef}
+        style={{
+          ...nodeStyle,
+          position: 'relative', // Muda de absolute para relative
+          left: 0,
+          top: 0,
+          pointerEvents: 'auto',
+        }}
+        onMouseDown={handleMouseDown}
+        onDoubleClick={handleDoubleClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <div style={{
+          ...contentStyle,
+          pointerEvents: isEditing ? 'auto' : 'none',
+        }}>
+          {isEditing ? (
+            <input
+              type="text"
+              value={editedText}
+              onChange={(e) => setEditedText(e.target.value)}
+              onBlur={handleTextSubmit}
+              onKeyDown={handleKeyPress}
+              style={{
+                width: '90%',
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: 'white',
+                textAlign: 'center',
+                fontSize: '14px',
+                fontWeight: '500',
+                pointerEvents: 'auto',
+              }}
+              autoFocus
+              onMouseDown={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <div style={{
               textAlign: 'center',
               fontSize: '14px',
               fontWeight: '500',
-              pointerEvents: 'auto',
+              wordBreak: 'break-word',
+              lineHeight: '1.4',
+              pointerEvents: 'none',
+            }}>
+              {node.text.split('\n').map((line, index) => (
+                <div key={index}>{line}</div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {isConnecting && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              cursor: 'crosshair',
+              zIndex: 10,
             }}
-            autoFocus
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log('🎯 Nó clicado para conexão:', node.id);
+              onEndConnection(node.id);
+            }}
             onMouseDown={(e) => e.stopPropagation()}
           />
-        ) : (
-          <div style={{
-            textAlign: 'center',
-            fontSize: '14px',
-            fontWeight: '500',
-            wordBreak: 'break-word',
-            lineHeight: '1.4',
-            pointerEvents: 'none',
-          }}>
-            {node.text.split('\n').map((line, index) => (
-              <div key={index}>{line}</div>
-            ))}
-          </div>
         )}
       </div>
 
-      {isSelected && (
-        <button
-          data-connection="true"
+      {/* 🎯 HOOKS DE CONEXÃO - nas 4 direções principais */}
+      {(isSelected || isHovered) && getDefaultNodeHooks(node.id).map((hook) => {
+        const hookPos = getHookPosition(node, hook.direction, hook.offset);
+        const hookColor = HookColorSystem.getInstance().getHookColor(
+          node.id,
+          false,
+          [],
+          []
+        );
+        
+        // Posição relativa ao wrapper
+        const relativeX = hookPos.x - node.position.x;
+        const relativeY = hookPos.y - node.position.y;
+
+        return (
+          <div
+            key={hook.id}
+            style={{
+              position: 'absolute',
+              left: relativeX - HOOK_SIZE / 2,
+              top: relativeY - HOOK_SIZE / 2,
+              width: HOOK_SIZE,
+              height: HOOK_SIZE,
+              backgroundColor: 'white',
+              border: `2px solid ${hookColor}`,
+              borderRadius: '50%',
+              cursor: 'crosshair',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+              zIndex: 300,
+              pointerEvents: 'auto',
+              transition: 'transform 0.15s, box-shadow 0.15s',
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log('🔗 Hook clicado para conexão:', hook.direction, node.id);
+              onStartConnection(node.id);
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseEnter={(e) => {
+              const target = e.currentTarget as HTMLElement;
+              target.style.transform = 'scale(1.3)';
+              target.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.3)';
+            }}
+            onMouseLeave={(e) => {
+              const target = e.currentTarget as HTMLElement;
+              target.style.transform = 'scale(1)';
+              target.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.2)';
+            }}
+            title={`Conectar (${hook.direction})`}
+          >
+            {/* Indicador de direção */}
+            <div
+              style={{
+                position: 'absolute',
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '8px',
+                color: hookColor,
+                fontWeight: 'bold',
+                pointerEvents: 'none',
+              }}
+            >
+              {hook.direction === 'top' && '↑'}
+              {hook.direction === 'right' && '→'}
+              {hook.direction === 'bottom' && '↓'}
+              {hook.direction === 'left' && '←'}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Indicador de fixação - mostra quando o nó está fixo em um container */}
+      {node.isFixed && (
+        <div
           style={{
             position: 'absolute',
+            top: '-8px',
             right: '-8px',
-            bottom: '-8px',
-            width: '24px',
-            height: '24px',
-            backgroundColor: '#1F2937',
-            color: 'white',
+            width: '20px',
+            height: '20px',
+            backgroundColor: '#8B5CF6',
             borderRadius: '50%',
-            border: 'none',
+            border: '2px solid white',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: '12px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-            zIndex: 20,
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+            zIndex: 260,
+            pointerEvents: 'none',
           }}
-          onClick={(e) => {
-            e.stopPropagation();
-            console.log('🔗 Botão de conexão clicado para o nó:', node.id);
-            onStartConnection(node.id);
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-          title="Conectar com outro nó"
+          title="Nó fixado no container"
         >
-          +
-        </button>
+          🔒
+        </div>
       )}
 
-      {isConnecting && (
+      {/* Indicador de container - mostra quando o node está preso a um container */}
+      {node.containerId && !node.isFixed && (
         <div
           style={{
             position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            cursor: 'crosshair',
-            zIndex: 10,
+            top: '-6px',
+            left: '-6px',
+            width: '16px',
+            height: '16px',
+            backgroundColor: '#8B5CF6',
+            borderRadius: '50%',
+            border: '2px solid white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '10px',
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+            zIndex: 260,
+            pointerEvents: 'none',
           }}
-          onClick={(e) => {
-            e.stopPropagation();
-            console.log('🎯 Nó clicado para conexão:', node.id);
-            onEndConnection(node.id);
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-        />
+          title="Node está preso a um container"
+        >
+          📦
+        </div>
       )}
     </div>
   );
-});
+}));
 
 FlowchartNode.displayName = 'FlowchartNode';

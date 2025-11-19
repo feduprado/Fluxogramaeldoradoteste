@@ -1,162 +1,36 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NodeType } from '../types';
+import { Container } from '../types/container';
 import { Theme } from '../hooks/useTheme';
-
-type IconProps = React.SVGProps<SVGSVGElement>;
-
-const IconBase: React.FC<IconProps> = ({ children, ...props }) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    {...props}
-  >
-    {children}
-  </svg>
-);
-
-const Circle: React.FC<IconProps> = (props) => (
-  <IconBase {...props}>
-    <circle cx="12" cy="12" r="9"/>
-  </IconBase>
-);
-
-const Square: React.FC<IconProps> = (props) => (
-  <IconBase {...props}>
-    <rect x="5" y="5" width="14" height="14" rx="2"/>
-  </IconBase>
-);
-
-const Diamond: React.FC<IconProps> = (props) => (
-  <IconBase {...props}>
-    <path d="M12 2 20 12 12 22 4 12Z"/>
-  </IconBase>
-);
-
-const Trash2: React.FC<IconProps> = (props) => (
-  <IconBase {...props}>
-    <path d="M3 6h18"/>
-    <path d="M19 6v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
-    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-    <path d="M10 11v6"/>
-    <path d="M14 11v6"/>
-  </IconBase>
-);
-
-const Undo2: React.FC<IconProps> = (props) => (
-  <IconBase {...props}>
-    <path d="M9 14 4 9l5-5"/>
-    <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
-  </IconBase>
-);
-
-const Redo2: React.FC<IconProps> = (props) => (
-  <IconBase {...props}>
-    <path d="m15 9 5 5-5 5"/>
-    <path d="M4 4v7a4 4 0 0 0 4 4h12"/>
-  </IconBase>
-);
-
-const Eraser: React.FC<IconProps> = (props) => (
-  <IconBase {...props}>
-    <path d="m16 3 5 5-11 11H5l-2-2Z"/>
-    <path d="M6 19h4"/>
-  </IconBase>
-);
-
-const Sparkles: React.FC<IconProps> = (props) => (
-  <IconBase {...props}>
-    <path d="m12 3-1.9 5.63L4.5 10l5.6 1.37L12 17l1.9-5.63L19.5 10l-5.6-1.37Z"/>
-    <path d="m5 3 2 4-4 2 4 2-2 4"/>
-    <path d="m19 17-2-4 4-2-4-2 2-4"/>
-  </IconBase>
-);
-
-const Download: React.FC<IconProps> = (props) => (
-  <IconBase {...props}>
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-    <path d="m7 10 5 5 5-5"/>
-    <path d="M12 15V3"/>
-  </IconBase>
-);
-
-const Upload: React.FC<IconProps> = (props) => (
-  <IconBase {...props}>
-    <path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/>
-    <path d="m17 8-5-5-5 5"/>
-    <path d="M12 3v12"/>
-  </IconBase>
-);
-
-const Copy: React.FC<IconProps> = (props) => (
-  <IconBase {...props}>
-    <rect x="8" y="8" width="12" height="12" rx="2"/>
-    <rect x="4" y="4" width="12" height="12" rx="2"/>
-  </IconBase>
-);
-
-const ZoomIn: React.FC<IconProps> = (props) => (
-  <IconBase {...props}>
-    <circle cx="11" cy="11" r="8"/>
-    <path d="m21 21-4.35-4.35"/>
-    <path d="M11 8v6"/>
-    <path d="M8 11h6"/>
-  </IconBase>
-);
-
-const ZoomOut: React.FC<IconProps> = (props) => (
-  <IconBase {...props}>
-    <circle cx="11" cy="11" r="8"/>
-    <path d="m21 21-4.35-4.35"/>
-    <path d="M8 11h6"/>
-  </IconBase>
-);
-
-const Maximize2: React.FC<IconProps> = (props) => (
-  <IconBase {...props}>
-    <path d="M15 3h6v6"/>
-    <path d="M9 21H3v-6"/>
-    <path d="M21 3 14 10"/>
-    <path d="M3 21 10 14"/>
-  </IconBase>
-);
-
-const Moon: React.FC<IconProps> = (props) => (
-  <IconBase {...props}>
-    <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z"/>
-  </IconBase>
-);
-
-const Sun: React.FC<IconProps> = (props) => (
-  <IconBase {...props}>
-    <circle cx="12" cy="12" r="4"/>
-    <path d="M12 2v2"/>
-    <path d="M12 20v2"/>
-    <path d="M4.93 4.93 6.34 6.34"/>
-    <path d="M17.66 17.66 19.07 19.07"/>
-    <path d="M2 12h2"/>
-    <path d="M20 12h2"/>
-    <path d="M4.93 19.07 6.34 17.66"/>
-    <path d="M17.66 6.34 19.07 4.93"/>
-  </IconBase>
-);
-
-const BarChart: React.FC<IconProps> = (props) => (
-  <IconBase {...props}>
-    <path d="M3 3v18h18"/>
-    <rect x="7" y="10" width="3" height="8" rx="1"/>
-    <rect x="12" y="6" width="3" height="12" rx="1"/>
-    <rect x="17" y="12" width="3" height="6" rx="1"/>
-  </IconBase>
-);
+import { 
+  Circle, 
+  Square, 
+  Diamond, 
+  Trash2, 
+  Undo2, 
+  Redo2, 
+  Eraser, 
+  Sparkles, 
+  Download, 
+  Upload, 
+  Copy, 
+  ZoomIn, 
+  ZoomOut, 
+  Maximize2,
+  Moon,
+  Sun,
+  Container as ContainerIcon,
+  Layers,
+  Box,
+  Users
+} from 'lucide-react';
 
 interface ToolbarProps {
-  onAddNode: (type: NodeType) => void;
+  onAddNode: (type: string, position: { x: number; y: number }) => void;
   onRemoveNode: () => void;
   selectedNodeId: string | null;
+  selectedContainerId: string | null;
+  selectedConnectionId?: string | null;
   zoom: number;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -174,15 +48,19 @@ interface ToolbarProps {
   onCopyToFigma: () => void;
   theme: Theme;
   onToggleTheme: () => void;
-  isAnalysisEnabled: boolean;
-  isAnalysisOpen: boolean;
-  onToggleAnalysis: () => void;
+  onAddContainer: (type: ContainerType['type']) => void;
+  onRemoveContainer: () => void;
+  onToggleContainerCollapse: () => void;
+  onConnectionStyleClick: () => void;
+  onContainerLayersClick?: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
   onAddNode,
   onRemoveNode,
   selectedNodeId,
+  selectedContainerId,
+  selectedConnectionId,
   zoom,
   onZoomIn,
   onZoomOut,
@@ -200,17 +78,31 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onCopyToFigma,
   theme,
   onToggleTheme,
-  isAnalysisEnabled,
-  isAnalysisOpen,
-  onToggleAnalysis,
+  onAddContainer,
+  onRemoveContainer,
+  onToggleContainerCollapse,
+  onConnectionStyleClick,
+  onContainerLayersClick,
 }) => {
+  const [showContainerMenu, setShowContainerMenu] = useState(false);
+  
   const handleAddNode = (type: NodeType) => {
-    onAddNode(type);
+    // Posição central fixa
+    const centerX = 400;
+    const centerY = 300;
+    onAddNode(type, { x: centerX, y: centerY });
+  };
+
+  const handleAddContainer = (type: Container['type'], title: string) => {
+    const centerX = window.innerWidth / 2 - 200;
+    const centerY = window.innerHeight / 2 - 150;
+    onAddContainer(type, { x: centerX, y: centerY }, title);
+    setShowContainerMenu(false);
   };
 
   return (
     <div className={`${theme === 'dark' ? 'bg-[#2C2C2C] border-[#3C3C3C]' : 'bg-white border-gray-200'} border-b shadow-sm`}>
-      {/* Primeira linha - Nós e Ações principais */}
+      {/* Primeira linha - Nós, Containers e Ações principais */}
       <div className="px-4 py-2 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center space-x-3">
           {/* Seção de nós */}
@@ -223,7 +115,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               title="Adicionar nó de início"
             >
               <Circle className="w-3 h-3" fill="currentColor"/>
-              <span>Início</span>
+              <span className="font-bold">Início</span>
             </button>
 
             <button
@@ -232,7 +124,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               title="Adicionar nó de processo"
             >
               <Square className="w-3 h-3"/>
-              <span>Processo</span>
+              <span className="font-bold">Processo</span>
             </button>
 
             <button
@@ -241,7 +133,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               title="Adicionar nó de decisão"
             >
               <Diamond className="w-3 h-3"/>
-              <span>Decisão</span>
+              <span className="font-bold">Decisão</span>
             </button>
 
             <button
@@ -250,8 +142,123 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               title="Adicionar nó de fim"
             >
               <Circle className="w-3 h-3" fill="currentColor"/>
-              <span>Fim</span>
+              <span className="font-bold">Fim</span>
             </button>
+          </div>
+
+          {/* Separador */}
+          <div className={`h-6 w-px ${theme === 'dark' ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+
+          {/* Seção de containers */}
+          <div className="flex items-center space-x-2">
+            <span className={`text-xs font-medium ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'} mr-1`}>Containers:</span>
+            
+            <div className="relative">
+              <button
+                onClick={() => setShowContainerMenu(!showContainerMenu)}
+                className="px-3 py-1.5 bg-indigo-500 text-white rounded-md text-xs font-medium hover:bg-indigo-600 transition-colors flex items-center gap-1.5"
+                title="Adicionar container para agrupar nós"
+              >
+                <ContainerIcon className="w-3 h-3"/>
+                <span>+ Container</span>
+              </button>
+
+              {showContainerMenu && (
+                <div className={`absolute top-full left-0 mt-1 rounded-lg shadow-lg z-50 min-w-56 border ${
+                  theme === 'dark' ? 'bg-[#2C2C2C] border-gray-600' : 'bg-white border-gray-200'
+                }`}>
+                  <div className="p-2">
+                    <div className={`text-xs font-medium px-2 py-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>Tipo de Container:</div>
+                    
+                    <button
+                      onClick={() => handleAddContainer('swimlane', 'Swimlane - Usuário')}
+                      className={`w-full text-left px-3 py-2 text-xs rounded flex items-center space-x-2 transition-colors ${
+                        theme === 'dark' ? 'hover:bg-blue-900/30 text-gray-300' : 'hover:bg-blue-50 text-gray-700'
+                      }`}
+                    >
+                      <Users className="w-4 h-4 text-blue-500"/>
+                      <div>
+                        <div className="font-medium">Swimlane</div>
+                        <div className={theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}>Por ator/departamento</div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => handleAddContainer('module', 'Módulo - Login')}
+                      className={`w-full text-left px-3 py-2 text-xs rounded flex items-center space-x-2 transition-colors ${
+                        theme === 'dark' ? 'hover:bg-green-900/30 text-gray-300' : 'hover:bg-green-50 text-gray-700'
+                      }`}
+                    >
+                      <Box className="w-4 h-4 text-green-500"/>
+                      <div>
+                        <div className="font-medium">Módulo</div>
+                        <div className={theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}>Funcionalidade específica</div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => handleAddContainer('layer', 'Camada - Frontend')}
+                      className={`w-full text-left px-3 py-2 text-xs rounded flex items-center space-x-2 transition-colors ${
+                        theme === 'dark' ? 'hover:bg-orange-900/30 text-gray-300' : 'hover:bg-orange-50 text-gray-700'
+                      }`}
+                    >
+                      <Layers className="w-4 h-4 text-orange-500"/>
+                      <div>
+                        <div className="font-medium">Camada</div>
+                        <div className={theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}>Arquitetura/tecnologia</div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => handleAddContainer('scenario', 'Cenário - Happy Path')}
+                      className={`w-full text-left px-3 py-2 text-xs rounded flex items-center space-x-2 transition-colors ${
+                        theme === 'dark' ? 'hover:bg-purple-900/30 text-gray-300' : 'hover:bg-purple-50 text-gray-700'
+                      }`}
+                    >
+                      <ContainerIcon className="w-4 h-4 text-purple-500"/>
+                      <div>
+                        <div className="font-medium">Cenário</div>
+                        <div className={theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}>Caso de uso específico</div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Ações para container selecionado */}
+            {selectedContainerId && (
+              <>
+                <button
+                  onClick={onToggleContainerCollapse}
+                  className="px-3 py-1.5 bg-yellow-500 text-white rounded-md text-xs font-medium hover:bg-yellow-600 transition-colors flex items-center gap-1.5"
+                  title="Colapsar/Expandir Container"
+                >
+                  ⛶ <span>Colapsar</span>
+                </button>
+
+                <button
+                  onClick={onRemoveContainer}
+                  className="px-3 py-1.5 bg-red-500 text-white rounded-md text-xs font-medium hover:bg-red-600 transition-colors flex items-center gap-1.5"
+                  title="Remover Container"
+                >
+                  <Trash2 className="w-3 h-3"/>
+                  <span>Remover</span>
+                </button>
+              </>
+            )}
+            
+            {/* Botão de Camadas - sempre visível quando há containers */}
+            {onContainerLayersClick && (
+              <button
+                onClick={onContainerLayersClick}
+                className="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-medium hover:bg-indigo-700 transition-colors flex items-center gap-1.5"
+                title="Gerenciar camadas de containers (z-index)"
+              >
+                <Layers className="w-3 h-3"/>
+                <span>Camadas</span>
+              </button>
+            )}
           </div>
 
           {/* Separador */}
@@ -313,42 +320,37 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               <span>Refazer</span>
             </button>
 
-          <button
-            onClick={onClearCanvas}
-            className="px-3 py-1.5 bg-orange-500 text-white rounded-md text-xs font-medium hover:bg-orange-600 transition-colors flex items-center gap-1.5"
-            title="Limpar canvas"
-          >
-            <Eraser className="w-3 h-3"/>
-            <span>Limpar</span>
-          </button>
-
-          <button
-            onClick={onAIClick}
-            className="px-3 py-1.5 bg-purple-500 text-white rounded-md text-xs font-medium hover:bg-purple-600 transition-colors flex items-center gap-1.5"
-            title="Interpretar com IA"
-          >
-            <Sparkles className="w-3 h-3"/>
-            <span>IA</span>
-          </button>
-
-          {isAnalysisEnabled && (
             <button
-              onClick={onToggleAnalysis}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                isAnalysisOpen
-                  ? 'bg-indigo-600 text-white hover:bg-indigo-500'
-                  : theme === 'dark'
-                    ? 'bg-[#1E1E1E] text-indigo-200 hover:bg-[#2D2D2D]'
-                    : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
-              }`}
-              title={isAnalysisOpen ? 'Ocultar painel de análise' : 'Abrir painel de análise'}
+              onClick={onClearCanvas}
+              className="px-3 py-1.5 bg-orange-500 text-white rounded-md text-xs font-medium hover:bg-orange-600 transition-colors flex items-center gap-1.5"
+              title="Limpar canvas"
             >
-              <BarChart className="w-3.5 h-3.5"/>
-              <span>{isAnalysisOpen ? 'Análise ativa' : 'Análise'}</span>
+              <Eraser className="w-3 h-3"/>
+              <span>Limpar</span>
             </button>
-          )}
+
+            <button
+              onClick={onAIClick}
+              className="px-3 py-1.5 bg-purple-500 text-white rounded-md text-xs font-medium hover:bg-purple-600 transition-colors flex items-center gap-1.5"
+              title="Interpretar com IA"
+            >
+              <Sparkles className="w-3 h-3"/>
+              <span>IA</span>
+            </button>
+
+            {/* Botão de Hooks - só aparece quando há conexão selecionada */}
+            {selectedConnectionId && (
+              <button
+                onClick={onConnectionStyleClick}
+                className="px-3 py-1.5 bg-[rgb(105,105,105)] text-white rounded-md text-xs font-medium hover:bg-teal-600 transition-colors flex items-center gap-1.5 animate-pulse"
+                title="Estilizar conexão selecionada"
+              >
+                <span>🎨</span>
+                <span>Editar Hook</span>
+              </button>
+            )}
+          </div>
         </div>
-      </div>
 
         {/* Controles de visualização */}
         <div className="flex items-center space-x-2">
@@ -405,7 +407,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </div>
       </div>
 
-      {/* Segunda linha - Importar/Exportar */}
+      {/* Terceira linha - Importar/Exportar */}
       <div className={`px-4 py-2 flex items-center justify-between ${theme === 'dark' ? 'bg-[#252525]' : 'bg-gray-50'}`}>
         <div className="flex items-center space-x-2">
           <span className={`text-xs font-medium ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'} mr-1`}>Arquivo:</span>

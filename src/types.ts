@@ -1,5 +1,18 @@
 export type NodeType = 'start' | 'process' | 'decision' | 'end';
 
+// 🆕 Direções possíveis para hooks de conexão
+export type HookDirection = 'top' | 'right' | 'bottom' | 'left' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+// 🆕 Interface para hooks de conexão customizáveis
+export interface ConnectionHook {
+  id: string;
+  direction: HookDirection;
+  offset?: number; // Offset ao longo da borda (0-1)
+  isVisible?: boolean; // Se deve ser renderizado
+}
+
+import { Container } from './types/container';
+
 export interface FlowNode {
   id: string;
   type: NodeType;
@@ -7,22 +20,40 @@ export interface FlowNode {
   text: string;
   width: number;
   height: number;
+  containerId?: string; // ID do container que contém este nó
+  isFixed?: boolean; // 🆕 Nó fixo no container (não se move individualmente)
+  zIndex?: number; // Z-index para controle de camadas
+  isLocked?: boolean; // Nó bloqueado (não pode ser editado/movido)
 }
 
-export type ConnectionVariant = 'positive' | 'negative' | 'neutral';
+export interface ConnectionStyle {
+  type: 'straight' | 'curved' | 'elbow';
+  curvature?: number; // 0-1 para controlar intensidade da curva
+  color?: string;
+  strokeWidth?: number;
+  dashed?: boolean;
+}
 
 export interface Connection {
   id: string;
-  fromNodeId: string;
-  toNodeId: string;
-  label?: string;
-  variant?: ConnectionVariant;
+  fromNodeId: string; // Pode ser um node ou container ID
+  toNodeId: string;   // Pode ser um node ou container ID
+  fromType?: 'node' | 'container'; // Tipo da origem
+  toType?: 'node' | 'container';   // Tipo do destino
+  label?: string; // Label para conexões (ex: "Sim", "Não")
+  style?: ConnectionStyle;
+  points?: { x: number; y: number }[]; // Pontos de controle para hooks personalizados
+  hooks?: ConnectionHook[]; // 🆕 Hooks de conexão customizáveis
 }
 
 export interface FlowchartState {
   nodes: FlowNode[];
   connections: Connection[];
-  selectedNodeId: string | null;
+  selectedNodeId: string | null; // 🔄 Mantido por compatibilidade (primeiro nó selecionado)
+  selectedNodeIds: string[]; // 🆕 Array de nós selecionados (multi-seleção)
+  selectedContainerId: string | null;
+  selectedContainerIds: string[]; // 🆕 Array de containers selecionados
+  containers: Container[]; // 🆕 Adicionado containers ao state
   temporaryConnection: { fromNodeId: string; x: number; y: number } | null;
   zoom: number;
   pan: { x: number; y: number };
@@ -31,90 +62,5 @@ export interface FlowchartState {
 export interface AIParsedFlow {
   nodes: FlowNode[];
   connections: Connection[];
-}
-export type FlowchartOperationType =
-  | 'ADD_NODE'
-  | 'MOVE_NODE'
-  | 'DELETE_NODE'
-  | 'UPDATE_NODE'
-  | 'SYNC_FLOW';
-
-export interface FlowchartOperation {
-  type: FlowchartOperationType;
-  node?: FlowNode;
-  nodeId?: string;
-  position?: { x: number; y: number };
-  patch?: Partial<FlowNode>;
-  flow?: { nodes: FlowNode[]; connections: Connection[] };
-}
-
-export interface CollaborationUser {
-  id: string;
-  name: string;
-  color: string;
-  avatar?: string;
-  cursorPosition?: { x: number; y: number };
-  selectedNodeId?: string | null;
-  lastSeen?: number;
-}
-
-export interface PerformanceComplexityMetrics {
-  cyclomatic: number;
-  cognitive: number;
-  maintainability: number;
-}
-
-export interface Bottleneck {
-  nodeId: string;
-  type: 'decision' | 'process' | 'connection';
-  issue: string;
-  severity: 'low' | 'medium' | 'high';
-  impact: string;
-  suggestedFix: string;
-}
-
-export interface OptimizationSuggestion {
-  id: string;
-  type: 'refactor' | 'simplify' | 'restructure';
-  description: string;
-  estimatedEffort: 'low' | 'medium' | 'high';
-  expectedImpact: 'low' | 'medium' | 'high';
-  steps: string[];
-}
-
-export interface PerformanceMetrics {
-  complexity: PerformanceComplexityMetrics;
-  bottlenecks: Bottleneck[];
-  optimizationSuggestions: OptimizationSuggestion[];
-  performanceScore: number;
-}
-
-export interface Suggestion {
-  id: string;
-  type: 'shortcut' | 'template' | 'feature' | 'optimization';
-  title: string;
-  description: string;
-  reason: string;
-  priority: 'low' | 'medium' | 'high';
-  action: string;
-}
-
-export interface AdaptiveUIChanges {
-  showTutorials?: boolean;
-  simplifiedToolbar?: boolean;
-  contextHelp?: boolean;
-  advancedFeatures?: boolean;
-  expertShortcuts?: boolean;
-}
-
-export interface ActionContext {
-  [key: string]: unknown;
-}
-
-export interface UserAction {
-  type: string;
-  timestamp: number;
-  duration?: number;
-  context?: ActionContext;
-  success?: boolean;
+  containers?: Container[];
 }

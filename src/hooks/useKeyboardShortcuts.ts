@@ -16,7 +16,9 @@ interface KeyboardShortcutsProps {
   onExport: () => void;
   onImport: () => void;
   onShowHelp: () => void;
+  onToggleFixed?: () => void; // 🆕 Toggle fixação dos nós selecionados
   selectedNodeId: string | null;
+  selectedConnectionId?: string | null; // Adicionado
   hasTemporaryConnection: boolean;
   canUndo: boolean;
   canRedo: boolean;
@@ -38,7 +40,9 @@ export const useKeyboardShortcuts = ({
   onExport,
   onImport,
   onShowHelp,
+  onToggleFixed, // 🆕
   selectedNodeId,
+  selectedConnectionId, // Adicionado
   hasTemporaryConnection,
   canUndo,
   canRedo,
@@ -87,8 +91,8 @@ export const useKeyboardShortcuts = ({
       return;
     }
 
-    // Delete ou Backspace - Excluir nó selecionado
-    if ((event.key === 'Delete' || event.key === 'Backspace') && selectedNodeId) {
+    // Delete ou Backspace - Excluir nó ou conexão selecionada
+    if ((event.key === 'Delete' || event.key === 'Backspace') && (selectedNodeId || selectedConnectionId)) {
       event.preventDefault();
       onDelete();
       return;
@@ -133,6 +137,13 @@ export const useKeyboardShortcuts = ({
     if (ctrlKey && event.key === 'o') {
       event.preventDefault();
       onImport();
+      return;
+    }
+
+    // 🆕 F - Fixar/Desfixar nós selecionados em containers
+    if (event.key === 'f' && !ctrlKey && selectedNodeId && onToggleFixed) {
+      event.preventDefault();
+      onToggleFixed();
       return;
     }
 
@@ -198,10 +209,19 @@ export const useKeyboardShortcuts = ({
           break;
       }
     }
+
+    // Ctrl+F - Toggle fixação dos nós selecionados
+    if (ctrlKey && event.key === 'f' && selectedNodeId) {
+      event.preventDefault();
+      if (onToggleFixed) onToggleFixed();
+      return;
+    }
   }, [
     onUndo, onRedo, onDelete, onDuplicate, onZoomIn, onZoomOut, onResetView,
     onAddNode, onMoveNode, onSelectNext, onSelectPrevious, onCancelConnection,
-    onExport, onImport, onShowHelp, selectedNodeId, hasTemporaryConnection,
+    onExport, onImport, onShowHelp, onToggleFixed, // 🆕
+    selectedNodeId, selectedConnectionId, // Adicionado
+    hasTemporaryConnection,
     canUndo, canRedo
   ]);
 

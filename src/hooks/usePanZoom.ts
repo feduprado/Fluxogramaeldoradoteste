@@ -8,9 +8,8 @@ export const usePanZoom = () => {
   const lastMousePos = useRef({ x: 0, y: 0 });
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // Botão esquerdo (0) ou botão do meio/scroll (1) permitem arrastar o canvas
-    if (e.button === 0 || e.button === 1) {
-      e.preventDefault(); // Previne comportamento padrão do botão do meio
+    // Só inicia pan se for clique com botão esquerdo e não em um elemento interativo
+    if (e.button === 0 && !(e.target as HTMLElement).closest('.flowchart-node, button, input, textarea')) {
       isPanning.current = true;
       lastMousePos.current = { x: e.clientX, y: e.clientY };
       document.body.style.cursor = 'grabbing';
@@ -37,12 +36,12 @@ export const usePanZoom = () => {
   }, []);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    
     if (e.ctrlKey) {
-      const zoomSpeed = 0.001;
-      const delta = -e.deltaY * zoomSpeed;
+      e.preventDefault();
+      const zoomSpeed = 0.1;
+      const delta = -e.deltaY * zoomSpeed * 0.01;
       const newZoom = Math.max(0.3, Math.min(3, zoom + delta));
+      
       setZoom(newZoom);
     }
   }, [zoom]);
@@ -63,7 +62,7 @@ export const usePanZoom = () => {
   const centerFlow = useCallback((nodes: FlowNode[]) => {
     if (nodes.length === 0) return;
 
-    // Calcula os limites do fluxograma
+    // Calcula os limites do fluxo (bounding box)
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
@@ -76,31 +75,29 @@ export const usePanZoom = () => {
       maxY = Math.max(maxY, node.position.y + node.height);
     });
 
-    // Calcula o centro do fluxograma
+    // Calcula o centro do fluxo
     const flowCenterX = (minX + maxX) / 2;
     const flowCenterY = (minY + maxY) / 2;
 
-    // Calcula o centro da viewport (assumindo largura e altura da janela)
-    const viewportCenterX = window.innerWidth / 2;
-    const viewportCenterY = window.innerHeight / 2;
+    // Calcula o centro da viewport (assumindo viewport padrão)
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const viewportCenterX = viewportWidth / 2;
+    const viewportCenterY = viewportHeight / 2;
 
     // Calcula o pan necessário para centralizar
     const newPanX = viewportCenterX - flowCenterX;
     const newPanY = viewportCenterY - flowCenterY;
 
     setPan({ x: newPanX, y: newPanY });
-    setZoom(1); // Reset zoom para 100%
-
-    console.log('🎯 Fluxo centralizado:', { 
-      flowCenter: { x: flowCenterX, y: flowCenterY },
-      viewportCenter: { x: viewportCenterX, y: viewportCenterY },
-      pan: { x: newPanX, y: newPanY }
-    });
+    setZoom(1); // Reseta o zoom também
   }, []);
 
   return {
     pan,
     zoom,
+    setPan,
+    setZoom,
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
@@ -108,6 +105,6 @@ export const usePanZoom = () => {
     resetView,
     zoomIn,
     zoomOut,
-    centerFlow,
+    centerFlow, // 🆕 Centraliza o fluxo
   };
 };
