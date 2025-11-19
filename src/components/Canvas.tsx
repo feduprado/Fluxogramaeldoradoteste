@@ -123,13 +123,23 @@ export const Canvas: React.FC<CanvasProps> = ({
   const calculateTemporaryConnectionPath = () => {
     if (!temporaryConnection) return '';
 
+    // Primeiro tenta encontrar um nó
     const fromNode = nodes.find(n => n.id === temporaryConnection.fromNodeId);
-    if (!fromNode) return '';
-
-    const startX = fromNode.position.x + fromNode.width / 2;
-    const startY = fromNode.position.y + fromNode.height / 2;
+    if (fromNode) {
+      const startX = fromNode.position.x + fromNode.width / 2;
+      const startY = fromNode.position.y + fromNode.height / 2;
+      return `M ${startX} ${startY} L ${temporaryConnection.x} ${temporaryConnection.y}`;
+    }
     
-    return `M ${startX} ${startY} L ${temporaryConnection.x} ${temporaryConnection.y}`;
+    // Se não for um nó, tenta encontrar um container
+    const fromContainer = containers.find(c => c.id === temporaryConnection.fromNodeId);
+    if (fromContainer) {
+      const startX = fromContainer.position.x + fromContainer.size.width / 2;
+      const startY = fromContainer.position.y + fromContainer.size.height / 2;
+      return `M ${startX} ${startY} L ${temporaryConnection.x} ${temporaryConnection.y}`;
+    }
+
+    return '';
   };
 
   return (

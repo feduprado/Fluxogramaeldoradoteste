@@ -210,8 +210,9 @@ export const useFlowchart = () => {
   }, [addToHistory]);
 
   const startConnection = useCallback((nodeId: string) => {
-    console.log('🔗 Iniciando conexão do nó:', nodeId);
+    console.log('🔗 Iniciando conexão de:', nodeId);
     setState(prev => {
+      // Primeiro tenta encontrar um nó
       const node = prev.nodes.find(n => n.id === nodeId);
       if (node) {
         return {
@@ -223,6 +224,20 @@ export const useFlowchart = () => {
           },
         };
       }
+      
+      // Se não for um nó, tenta encontrar um container
+      const container = prev.containers.find(c => c.id === nodeId);
+      if (container) {
+        return {
+          ...prev,
+          temporaryConnection: { 
+            fromNodeId: nodeId, 
+            x: container.position.x + container.size.width / 2, 
+            y: container.position.y + container.size.height / 2 
+          },
+        };
+      }
+      
       return prev;
     });
   }, []);

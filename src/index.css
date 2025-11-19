@@ -919,10 +919,6 @@
     cursor: grab;
   }
 
-  .cursor-move {
-    cursor: move;
-  }
-
   .cursor-not-allowed {
     cursor: not-allowed;
   }

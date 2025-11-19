@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Container as ContainerType } from '../types/container';
 import { CONTAINER_COLORS, CONTAINER_BORDER_COLORS } from '../types/container';
-import { Maximize2, Minimize2, Lock, Unlock } from 'lucide-react';
+import { Maximize2, Minimize2 } from 'lucide-react';
 
 interface ContainerProps {
   container: ContainerType;
@@ -11,9 +11,9 @@ interface ContainerProps {
   onResize: (containerId: string, newSize: { width: number; height: number }) => void;
   onToggleCollapse: (containerId: string) => void;
   onRename?: (containerId: string, newName: string) => void;
-  onStartConnection?: (containerId: string) => void; // Adicionado
-  onEndConnection?: (containerId: string) => void;   // Adicionado
-  isConnecting?: boolean; // Adicionado
+  onStartConnection?: (containerId: string) => void;
+  onEndConnection?: (containerId: string) => void;
+  isConnecting?: boolean;
   zoom: number;
   pan: { x: number; y: number };
 }
@@ -39,28 +39,48 @@ export const Container: React.FC<ContainerProps> = ({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // 🐛 DEBUG: Log quando as props mudam
+  useEffect(() => {
+    if (isSelected || isConnecting) {
+      console.log(`📦 Container ${container.id}:`, {
+        isSelected,
+        isConnecting,
+        hasStartConnection: !!onStartConnection,
+        hasEndConnection: !!onEndConnection,
+        position: container.position
+      });
+    }
+  }, [isSelected, isConnecting, container.id, container.position, onStartConnection, onEndConnection]);
+
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Prevenir seleção de texto
-    e.preventDefault();
-    
-    // Não fazer nada se estiver editando
+    // Se estiver editando, não fazer nada
     if (isEditing) return;
     
-    // Apenas iniciar drag se não estiver clicando no botão de colapsar
-    if ((e.target as HTMLElement).closest('button')) {
+    const target = e.target as HTMLElement;
+    
+    // 🔥 IMPORTANTE: Não interferir com hooks de conexão
+    if (target.closest('[data-connection-hook="true"]')) {
+      console.log('🎯 Clique em hook detectado, ignorando drag');
+      return;
+    }
+    
+    // Não fazer nada se estiver clicando em botões
+    if (target.closest('button')) {
       return;
     }
     
     // Se clicar no input, não fazer nada
-    if ((e.target as HTMLElement).tagName === 'INPUT') {
+    if (target.tagName === 'INPUT') {
       return;
     }
 
+    e.preventDefault();
+    
     // Selecionar container
     onSelect(container.id);
 
     // Verificar se está clicando no handle de resize
-    const isResizeHandle = (e.target as HTMLElement).classList.contains('resize-handle');
+    const isResizeHandle = target.classList.contains('resize-handle');
     
     if (isResizeHandle) {
       setIsResizing(true);
@@ -79,8 +99,10 @@ export const Container: React.FC<ContainerProps> = ({
   
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Só permitir edição se onRename foi fornecido e não está clicando em botões
-    if (onRename && !(e.target as HTMLElement).closest('button')) {
+    const target = e.target as HTMLElement;
+    
+    // Só permitir edição se onRename foi fornecido e não está clicando em botões/hooks
+    if (onRename && !target.closest('button') && !target.closest('[data-connection-hook="true"]')) {
       setIsEditing(true);
       setEditedName(container.name);
     }
@@ -145,10 +167,59 @@ export const Container: React.FC<ContainerProps> = ({
   const backgroundColor = CONTAINER_COLORS[container.type];
   const borderColor = CONTAINER_BORDER_COLORS[container.type];
 
+  // 🔥 Handler dedicado para hooks de conexão
+  const handleConnectionHookClick = (e: React.MouseEvent, position: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log(`🔘 Hook ${position} clicado!`, {
+      containerId: container.id,
+      isConnecting,
+      hasStartConnection: !!onStartConnection,
+      hasEndConnection: !!onEndConnection
+    });
+    
+    if (!onStartConnection || !onEndConnection) {
+      console.warn('⚠️ Handlers de conexão não fornecidos!');
+      return;
+    }
+    
+    if (isConnecting) {
+      console.log('🎯 Finalizando conexão em container:', container.id);
+      onEndConnection(container.id);
+    } else {
+      console.log('🔗 Iniciando conexão de container:', container.id);
+      onStartConnection(container.id);
+    }
+  };
+
+  // Estilo comum para todos os hooks
+  const hookStyle: React.CSSProperties = {
+    position: 'absolute',
+    width: '28px',
+    height: '28px',
+    backgroundColor: borderColor,
+    color: 'white',
+    borderRadius: '50%',
+    border: '3px solid white',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '16px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.3)',
+    zIndex: 1000,
+    pointerEvents: 'auto',
+    transition: 'transform 0.2s, box-shadow 0.2s',
+  };
+
+  const showHooks = (isSelected || isConnecting) && onStartConnection && onEndConnection;
+
   return (
     <div
       ref={containerRef}
-      className={`absolute cursor-move select-none transition-shadow ${
+      className={`absolute select-none transition-shadow ${
         isSelected ? 'shadow-xl' : 'shadow-md'
       }`}
       style={{
@@ -161,13 +232,15 @@ export const Container: React.FC<ContainerProps> = ({
         borderRadius: '8px',
         zIndex: container.zIndex,
         pointerEvents: 'auto',
+        overflow: 'visible',
+        cursor: isDragging ? 'grabbing' : 'grab',
       }}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
     >
       {/* Header do container */}
       <div
-        className="flex items-center justify-between px-3 py-2 cursor-move"
+        className="flex items-center justify-between px-3 py-2"
         style={{
           backgroundColor: `${borderColor}20`,
           borderBottom: container.isCollapsed ? 'none' : `1px solid ${borderColor}40`,
@@ -259,157 +332,117 @@ export const Container: React.FC<ContainerProps> = ({
         />
       )}
 
-      {/* Pontos de conexão - visíveis apenas quando selecionado ou em modo de conexão */}
-      {(isSelected || isConnecting) && onStartConnection && onEndConnection && (
+      {/* 🔥 HOOKS DE CONEXÃO - Refatorados com handlers dedicados */}
+      {showHooks && (
         <>
-          {/* Ponto de conexão à direita */}
-          <button
-            data-connection="true"
+          {/* Hook Direita */}
+          <div
+            data-connection-hook="true"
             style={{
-              position: 'absolute',
-              right: '-12px',
+              ...hookStyle,
+              right: '-14px',
               top: '50%',
               transform: 'translateY(-50%)',
-              width: '24px',
-              height: '24px',
-              backgroundColor: borderColor,
-              color: 'white',
-              borderRadius: '50%',
-              border: '2px solid white',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-              zIndex: 20,
             }}
-            onClick={(e) => {
+            onClick={(e) => handleConnectionHookClick(e, 'direita')}
+            onMouseDown={(e) => {
+              e.preventDefault();
               e.stopPropagation();
-              if (isConnecting) {
-                onEndConnection(container.id);
-              } else {
-                onStartConnection(container.id);
-              }
             }}
-            onMouseDown={(e) => e.stopPropagation()}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = 'translateY(-50%) scale(1.15)';
+              (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 16px -2px rgba(0, 0, 0, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = 'translateY(-50%) scale(1)';
+              (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px -2px rgba(0, 0, 0, 0.3)';
+            }}
             title={isConnecting ? 'Conectar aqui' : 'Iniciar conexão'}
           >
             {isConnecting ? '○' : '+'}
-          </button>
+          </div>
 
-          {/* Ponto de conexão à esquerda */}
-          <button
-            data-connection="true"
+          {/* Hook Esquerda */}
+          <div
+            data-connection-hook="true"
             style={{
-              position: 'absolute',
-              left: '-12px',
+              ...hookStyle,
+              left: '-14px',
               top: '50%',
               transform: 'translateY(-50%)',
-              width: '24px',
-              height: '24px',
-              backgroundColor: borderColor,
-              color: 'white',
-              borderRadius: '50%',
-              border: '2px solid white',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-              zIndex: 20,
             }}
-            onClick={(e) => {
+            onClick={(e) => handleConnectionHookClick(e, 'esquerda')}
+            onMouseDown={(e) => {
+              e.preventDefault();
               e.stopPropagation();
-              if (isConnecting) {
-                onEndConnection(container.id);
-              } else {
-                onStartConnection(container.id);
-              }
             }}
-            onMouseDown={(e) => e.stopPropagation()}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = 'translateY(-50%) scale(1.15)';
+              (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 16px -2px rgba(0, 0, 0, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = 'translateY(-50%) scale(1)';
+              (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px -2px rgba(0, 0, 0, 0.3)';
+            }}
             title={isConnecting ? 'Conectar aqui' : 'Iniciar conexão'}
           >
             {isConnecting ? '○' : '+'}
-          </button>
+          </div>
 
-          {/* Ponto de conexão em cima */}
-          <button
-            data-connection="true"
+          {/* Hook Topo */}
+          <div
+            data-connection-hook="true"
             style={{
-              position: 'absolute',
+              ...hookStyle,
               left: '50%',
-              top: '-12px',
+              top: '-14px',
               transform: 'translateX(-50%)',
-              width: '24px',
-              height: '24px',
-              backgroundColor: borderColor,
-              color: 'white',
-              borderRadius: '50%',
-              border: '2px solid white',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '14px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-              zIndex: 20,
             }}
-            onClick={(e) => {
+            onClick={(e) => handleConnectionHookClick(e, 'topo')}
+            onMouseDown={(e) => {
+              e.preventDefault();
               e.stopPropagation();
-              if (isConnecting) {
-                onEndConnection(container.id);
-              } else {
-                onStartConnection(container.id);
-              }
             }}
-            onMouseDown={(e) => e.stopPropagation()}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = 'translateX(-50%) scale(1.15)';
+              (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 16px -2px rgba(0, 0, 0, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = 'translateX(-50%) scale(1)';
+              (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px -2px rgba(0, 0, 0, 0.3)';
+            }}
             title={isConnecting ? 'Conectar aqui' : 'Iniciar conexão'}
           >
             {isConnecting ? '○' : '+'}
-          </button>
+          </div>
 
-          {/* Ponto de conexão embaixo */}
+          {/* Hook Base */}
           {!container.isCollapsed && (
-            <button
-              data-connection="true"
+            <div
+              data-connection-hook="true"
               style={{
-                position: 'absolute',
+                ...hookStyle,
                 left: '50%',
-                bottom: '-12px',
+                bottom: '-14px',
                 transform: 'translateX(-50%)',
-                width: '24px',
-                height: '24px',
-                backgroundColor: borderColor,
-                color: 'white',
-                borderRadius: '50%',
-                border: '2px solid white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '14px',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                zIndex: 20,
               }}
-              onClick={(e) => {
+              onClick={(e) => handleConnectionHookClick(e, 'base')}
+              onMouseDown={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
-                if (isConnecting) {
-                  onEndConnection(container.id);
-                } else {
-                  onStartConnection(container.id);
-                }
               }}
-              onMouseDown={(e) => e.stopPropagation()}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.transform = 'translateX(-50%) scale(1.15)';
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 16px -2px rgba(0, 0, 0, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.transform = 'translateX(-50%) scale(1)';
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px -2px rgba(0, 0, 0, 0.3)';
+              }}
               title={isConnecting ? 'Conectar aqui' : 'Iniciar conexão'}
             >
               {isConnecting ? '○' : '+'}
-            </button>
+            </div>
           )}
         </>
       )}
