@@ -24,6 +24,7 @@ export interface FlowNode {
   isFixed?: boolean; // 🆕 Nó fixo no container (não se move individualmente)
   zIndex?: number; // Z-index para controle de camadas
   isLocked?: boolean; // Nó bloqueado (não pode ser editado/movido)
+  hooks?: ConnectionHook[]; // 🆕 Hooks customizáveis do nó
 }
 
 export interface ConnectionStyle {

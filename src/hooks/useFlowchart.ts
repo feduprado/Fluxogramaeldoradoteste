@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { FlowNode, NodeType, Connection, FlowchartState, ConnectionStyle } from '../types';
+import { FlowNode, NodeType, Connection, FlowchartState, ConnectionStyle, HookDirection } from '../types';
 import { Container } from '../types/container';
 import { CONTAINER_COLORS, CONTAINER_BORDER_COLORS } from '../types/container';
 import { copyToFigmaClipboard } from '../utils/figmaClipboard';
@@ -909,6 +909,68 @@ export const useFlowchart = () => {
     console.log('🧹 Posições originais de arraste múltiplo limpas');
   }, []);
 
+  // ========== GERENCIAMENTO DE HOOKS ==========
+  
+  const addNodeHook = useCallback((nodeId: string, direction: HookDirection, offset?: number) => {
+    console.log('➕ Adicionando hook ao nó:', nodeId, direction);
+    setState(prev => {
+      const node = prev.nodes.find(n => n.id === nodeId);
+      if (!node) return prev;
+
+      const { addHook } = require('../utils/hookManager');
+      const newHooks = addHook(node, direction, offset);
+
+      const newState = {
+        ...prev,
+        nodes: prev.nodes.map(n =>
+          n.id === nodeId ? { ...n, hooks: newHooks } : n
+        ),
+      };
+      addToHistory(newState);
+      return newState;
+    });
+  }, [addToHistory]);
+
+  const removeNodeHook = useCallback((nodeId: string, hookId: string) => {
+    console.log('➖ Removendo hook do nó:', nodeId, hookId);
+    setState(prev => {
+      const node = prev.nodes.find(n => n.id === nodeId);
+      if (!node) return prev;
+
+      const { removeHook } = require('../utils/hookManager');
+      const newHooks = removeHook(node, hookId);
+
+      const newState = {
+        ...prev,
+        nodes: prev.nodes.map(n =>
+          n.id === nodeId ? { ...n, hooks: newHooks } : n
+        ),
+      };
+      addToHistory(newState);
+      return newState;
+    });
+  }, [addToHistory]);
+
+  const redistributeNodeHooks = useCallback((nodeId: string, direction: HookDirection) => {
+    console.log('🔄 Redistribuindo hooks do nó:', nodeId, direction);
+    setState(prev => {
+      const node = prev.nodes.find(n => n.id === nodeId);
+      if (!node) return prev;
+
+      const { redistributeHooks } = require('../utils/hookManager');
+      const newHooks = redistributeHooks(node, direction);
+
+      const newState = {
+        ...prev,
+        nodes: prev.nodes.map(n =>
+          n.id === nodeId ? { ...n, hooks: newHooks } : n
+        ),
+      };
+      addToHistory(newState);
+      return newState;
+    });
+  }, [addToHistory]);
+
   return {
     ...state,
     addNode,
@@ -959,5 +1021,9 @@ export const useFlowchart = () => {
     // 🆕 Arraste múltiplo
     updateMultipleNodesPosition,
     clearMultiDragPositions,
+    // 🆕 Gerenciamento de hooks
+    addNodeHook,
+    removeNodeHook,
+    redistributeNodeHooks,
   };
 };

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { FlowNode, Connection } from '../types';
+import { FlowNode, Connection, HookDirection } from '../types';
 import { Container as ContainerType } from '../types/container';
 import { FlowchartNode } from './FlowchartNode';
 import { Connection as ConnectionComponent } from './Connection';
@@ -40,6 +40,9 @@ interface CanvasProps {
   onMouseUp: () => void;
   onWheel: (e: React.WheelEvent) => void;
   theme: Theme;
+  onAddHook?: (nodeId: string, direction: HookDirection) => void; // 🆕 Hook management
+  onRemoveHook?: (nodeId: string, hookId: string) => void; // 🆕 Hook management
+  onRedistributeHooks?: (nodeId: string, direction: HookDirection) => void; // 🆕 Hook management
 }
 
 export const Canvas: React.FC<CanvasProps> = ({
@@ -76,6 +79,9 @@ export const Canvas: React.FC<CanvasProps> = ({
   onMouseUp,
   onWheel,
   theme,
+  onAddHook, // 🆕 Hook management
+  onRemoveHook, // 🆕 Hook management
+  onRedistributeHooks, // 🆕 Hook management
 }) => {
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -310,6 +316,9 @@ export const Canvas: React.FC<CanvasProps> = ({
               theme={theme}
               containers={containers}
               temporaryConnection={temporaryConnection} // 🆕 Para detectar modo de conexão
+              onAddHook={onAddHook} // 🆕 Hook management
+              onRemoveHook={onRemoveHook} // 🆕 Hook management
+              onRedistributeHooks={onRedistributeHooks} // 🆕 Hook management
             />
           );
         })}

@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { FlowNode, HookDirection } from '../types';
-import { getHookPosition, getDefaultNodeHooks, HOOK_SIZE } from '../utils/hookPositions';
+import { getHookPosition, getDefaultNodeHooks, HOOK_SIZE, getVisibleHooks } from '../utils/hookManager';
 import { HookColorSystem } from '../services/hookColorSystem';
+import { HookManager } from './HookManager';
 
 interface FlowchartNodeProps {
   node: FlowNode;
@@ -20,6 +21,10 @@ interface FlowchartNodeProps {
   theme: Theme;
   containers: Container[];
   temporaryConnection?: { fromNodeId: string; x: number; y: number } | null; // 🆕 Para detectar conexões
+  // 🆕 Hook management
+  onAddHook?: (nodeId: string, direction: HookDirection) => void;
+  onRemoveHook?: (nodeId: string, hookId: string) => void;
+  onRedistributeHooks?: (nodeId: string, direction: HookDirection) => void;
 }
 
 export const FlowchartNode: React.FC<FlowchartNodeProps> = React.memo((({
@@ -39,6 +44,9 @@ export const FlowchartNode: React.FC<FlowchartNodeProps> = React.memo((({
   theme,
   containers,
   temporaryConnection, // 🆕
+  onAddHook, // 🆕
+  onRemoveHook, // 🆕
+  onRedistributeHooks, // 🆕
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState(node.text);
@@ -391,7 +399,7 @@ export const FlowchartNode: React.FC<FlowchartNodeProps> = React.memo((({
       </div>
 
       {/* 🎯 HOOKS DE CONEXÃO - nas 4 direções principais */}
-      {(isSelected || isHovered) && getDefaultNodeHooks(node.id).map((hook) => {
+      {(isSelected || isHovered) && getVisibleHooks(node).map((hook) => {
         const hookPos = getHookPosition(node, hook.direction, hook.offset);
         const hookColor = HookColorSystem.getInstance().getHookColor(
           node.id,
@@ -514,6 +522,16 @@ export const FlowchartNode: React.FC<FlowchartNodeProps> = React.memo((({
         >
           📦
         </div>
+      )}
+
+      {/* 🆕 HOOK MANAGER - Gerenciamento de hooks */}
+      {isSelected && onAddHook && onRemoveHook && onRedistributeHooks && (
+        <HookManager
+          node={node}
+          onAddHook={onAddHook}
+          onRemoveHook={onRemoveHook}
+          onRedistributeHooks={onRedistributeHooks}
+        />
       )}
     </div>
   );
