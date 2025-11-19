@@ -5,6 +5,7 @@ import { FlowchartNode } from './FlowchartNode';
 import { Connection as ConnectionComponent } from './Connection';
 import { Container } from './Container';
 import { Theme } from '../hooks/useTheme';
+import { getHookAnchorPosition } from '../utils/hookManager';
 
 interface CanvasProps {
   nodes: FlowNode[];
@@ -13,7 +14,7 @@ interface CanvasProps {
   selectedNodeId: string | null;
   selectedNodeIds?: string[]; // 🆕 Multi-seleção
   selectedContainerId: string | null;
-  temporaryConnection: { fromNodeId: string; x: number; y: number } | null;
+  temporaryConnection: { fromNodeId: string; fromHookId?: string; x: number; y: number } | null;
   zoom: number;
   pan: { x: number; y: number };
   onNodeSelect: (nodeId: string | null) => void;
@@ -23,9 +24,9 @@ interface CanvasProps {
   onClearMultiDrag?: () => void; // 🆕 Limpa posições do arraste
   onContainerSelect: (containerId: string | null) => void;
   onNodeTextChange: (nodeId: string, newText: string) => void;
-  onStartConnection: (nodeId: string) => void;
+  onStartConnection: (nodeId: string, hookId?: string) => void;
   onUpdateTemporaryConnection: (x: number, y: number) => void;
-  onEndConnection: (nodeId: string) => void;
+  onEndConnection: (nodeId: string, hookId?: string) => void;
   onNodeResize: (nodeId: string, newSize: { width: number; height: number }) => void;
   onContainerMove: (containerId: string, newPosition: { x: number; y: number }) => void;
   onContainerResize: (containerId: string, newSize: { width: number; height: number }) => void;
@@ -152,9 +153,8 @@ export const Canvas: React.FC<CanvasProps> = ({
 
     const fromElement = getElementForConnection(temporaryConnection.fromNodeId);
     if (fromElement) {
-      const startX = fromElement.position.x + fromElement.width / 2;
-      const startY = fromElement.position.y + fromElement.height / 2;
-      return `M ${startX} ${startY} L ${temporaryConnection.x} ${temporaryConnection.y}`;
+      const anchor = getHookAnchorPosition(fromElement, temporaryConnection.fromHookId);
+      return `M ${anchor.x} ${anchor.y} L ${temporaryConnection.x} ${temporaryConnection.y}`;
     }
 
     return '';

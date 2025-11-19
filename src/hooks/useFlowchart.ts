@@ -210,31 +210,47 @@ export const useFlowchart = () => {
     });
   }, [addToHistory]);
 
-  const startConnection = useCallback((nodeId: string) => {
-    console.log('🔗 Iniciando conexão de:', nodeId);
+  const startConnection = useCallback((nodeId: string, hookId?: string) => {
+    console.log('🔗 Iniciando conexão de:', nodeId, hookId);
     setState(prev => {
       // Primeiro tenta encontrar um nó
       const node = prev.nodes.find(n => n.id === nodeId);
       if (node) {
+        const { getHookPosition, getDefaultNodeHooks } = require('../utils/hookManager');
+        let anchor = {
+          x: node.position.x + node.width / 2,
+          y: node.position.y + node.height / 2,
+        };
+
+        if (hookId) {
+          const hooks = node.hooks || getDefaultNodeHooks(node.id);
+          const hook = hooks.find(h => h.id === hookId);
+          if (hook) {
+            anchor = getHookPosition(node, hook.direction, hook.offset);
+          }
+        }
+
         return {
           ...prev,
-          temporaryConnection: { 
-            fromNodeId: nodeId, 
-            x: node.position.x + node.width / 2, 
-            y: node.position.y + node.height / 2 
+          temporaryConnection: {
+            fromNodeId: nodeId,
+            fromHookId: hookId,
+            x: anchor.x,
+            y: anchor.y
           },
         };
       }
-      
+
       // Se não for um nó, tenta encontrar um container
       const container = prev.containers.find(c => c.id === nodeId);
       if (container) {
         return {
           ...prev,
-          temporaryConnection: { 
-            fromNodeId: nodeId, 
-            x: container.position.x + container.size.width / 2, 
-            y: container.position.y + container.size.height / 2 
+          temporaryConnection: {
+            fromNodeId: nodeId,
+            fromHookId: undefined,
+            x: container.position.x + container.size.width / 2,
+            y: container.position.y + container.size.height / 2
           },
         };
       }
@@ -251,15 +267,21 @@ export const useFlowchart = () => {
     }));
   }, []);
 
-  const endConnection = useCallback((nodeId: string) => {
-    console.log('🎯 Finalizando conexão no nó:', nodeId);
+  const endConnection = useCallback((nodeId: string, hookId?: string) => {
+    console.log('🎯 Finalizando conexão no nó:', nodeId, hookId);
     setState(prev => {
       if (prev.temporaryConnection && prev.temporaryConnection.fromNodeId !== nodeId) {
-        // Verificar se já existe uma conexão entre esses nós
-        const connectionExists = prev.connections.some(
-          conn => conn.fromNodeId === prev.temporaryConnection!.fromNodeId && conn.toNodeId === nodeId
-        );
-        
+        // Verificar se já existe uma conexão entre esses nós/hooks
+        const connectionExists = prev.connections.some(conn => {
+          const sameNodes =
+            conn.fromNodeId === prev.temporaryConnection!.fromNodeId && conn.toNodeId === nodeId;
+          const sameFromHook =
+            !prev.temporaryConnection?.fromHookId ||
+            conn.fromHookId === prev.temporaryConnection?.fromHookId;
+          const sameToHook = !hookId || conn.toHookId === hookId;
+          return sameNodes && sameFromHook && sameToHook;
+        });
+
         if (connectionExists) {
           console.log('⚠️ Conexão já existe entre esses nós');
           return {
@@ -272,8 +294,10 @@ export const useFlowchart = () => {
           id: `conn-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           fromNodeId: prev.temporaryConnection.fromNodeId,
           toNodeId: nodeId,
+          fromHookId: prev.temporaryConnection.fromHookId,
+          toHookId: hookId,
         };
-        
+
         const newState = {
           ...prev,
           connections: [...prev.connections, newConnection],

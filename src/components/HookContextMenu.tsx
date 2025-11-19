@@ -6,15 +6,26 @@ interface HookContextMenuProps {
   position: { x: number; y: number };
   onClose: () => void;
   onChange: (updates: Partial<ConnectionHook>) => void;
+  onRemove?: () => void;
 }
 
-const DIRECTION_OPTIONS: HookDirection[] = ['top', 'right', 'bottom', 'left'];
+const DIRECTION_OPTIONS: HookDirection[] = [
+  'top',
+  'right',
+  'bottom',
+  'left',
+  'top-left',
+  'top-right',
+  'bottom-left',
+  'bottom-right'
+];
 
 export const HookContextMenu: React.FC<HookContextMenuProps> = ({
   hook,
   position,
   onClose,
   onChange,
+  onRemove,
 }) => {
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
@@ -225,6 +236,24 @@ export const HookContextMenu: React.FC<HookContextMenuProps> = ({
       <div style={{ fontSize: '11px', color: '#94A3B8' }}>
         Dica: Use Shift durante o arraste para travar em 25%, 50% ou 75%.
       </div>
+
+      {onRemove && (
+        <button
+          style={{
+            marginTop: '10px',
+            padding: '6px 8px',
+            borderRadius: '6px',
+            border: '1px solid #EF4444',
+            background: '#111827',
+            color: '#EF4444',
+            cursor: 'pointer',
+            fontSize: '12px',
+          }}
+          onClick={onRemove}
+        >
+          Remover Hook
+        </button>
+      )}
     </div>
   );
 };

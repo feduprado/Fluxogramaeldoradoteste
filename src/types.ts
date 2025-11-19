@@ -46,6 +46,8 @@ export interface Connection {
   toNodeId: string;   // Pode ser um node ou container ID
   fromType?: 'node' | 'container'; // Tipo da origem
   toType?: 'node' | 'container';   // Tipo do destino
+  fromHookId?: string; // Hook de origem utilizado
+  toHookId?: string;   // Hook de destino utilizado
   label?: string; // Label para conexões (ex: "Sim", "Não")
   style?: ConnectionStyle;
   points?: { x: number; y: number }[]; // Pontos de controle para hooks personalizados
@@ -60,7 +62,7 @@ export interface FlowchartState {
   selectedContainerId: string | null;
   selectedContainerIds: string[]; // 🆕 Array de containers selecionados
   containers: Container[]; // 🆕 Adicionado containers ao state
-  temporaryConnection: { fromNodeId: string; x: number; y: number } | null;
+  temporaryConnection: { fromNodeId: string; fromHookId?: string; x: number; y: number } | null;
   zoom: number;
   pan: { x: number; y: number };
 }

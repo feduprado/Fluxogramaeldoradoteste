@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Connection as ConnectionType, FlowNode, ConnectionStyle } from '../types';
+import { getHookAnchorPosition } from '../utils/hookManager';
 
 interface ConnectionProps {
   connection: ConnectionType;
@@ -55,45 +56,43 @@ export const Connection: React.FC<ConnectionProps> = React.memo((props) => {
 
   // Calcula pontos base baseados no estilo
   const calculateBasePoints = useCallback((): { x: number; y: number }[] => {
-    const startX = fromNode.position.x + fromNode.width / 2;
-    const startY = fromNode.position.y + fromNode.height / 2;
-    const endX = toNode.position.x + toNode.width / 2;
-    const endY = toNode.position.y + toNode.height / 2;
+    const start = getHookAnchorPosition(fromNode, connection.fromHookId);
+    const end = getHookAnchorPosition(toNode, connection.toHookId);
 
     switch (style.type) {
       case 'straight':
-        return [{ x: startX, y: startY }, { x: endX, y: endY }];
+        return [start, end];
 
       case 'curved': {
-        const dx = endX - startX;
-        const dy = endY - startY;
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
         const curvature = style.curvature || 0.5;
-        
-        const controlX1 = startX + dx * curvature;
-        const controlY1 = startY;
-        const controlX2 = startX + dx * (1 - curvature);
-        const controlY2 = endY;
-        
+
+        const controlX1 = start.x + dx * curvature;
+        const controlY1 = start.y;
+        const controlX2 = start.x + dx * (1 - curvature);
+        const controlY2 = end.y;
+
         return [
-          { x: startX, y: startY },
+          start,
           { x: controlX1, y: controlY1 },
           { x: controlX2, y: controlY2 },
-          { x: endX, y: endY }
+          end
         ];
       }
 
       case 'elbow':
       default: {
-        const midX = (startX + endX) / 2;
+        const midX = (start.x + end.x) / 2;
         return [
-          { x: startX, y: startY },
-          { x: midX, y: startY },
-          { x: midX, y: endY },
-          { x: endX, y: endY }
+          start,
+          { x: midX, y: start.y },
+          { x: midX, y: end.y },
+          end
         ];
       }
     }
-  }, [fromNode, toNode, style.type, style.curvature]);
+  }, [fromNode, toNode, style.type, style.curvature, connection.fromHookId, connection.toHookId]);
 
   // Usa pontos personalizados ou calcula base
   const points = useMemo(() => {

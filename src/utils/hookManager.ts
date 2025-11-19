@@ -2,24 +2,26 @@ import { ConnectionHook, HookDirection, FlowNode } from '../types';
 
 export const HOOK_SIZE = 12; // Tamanho base do hook (raio do círculo)
 export const HOOK_SPACING = 30; // Espaçamento mínimo entre hooks
+export const MIN_HOOK_SIZE = 8;
+export const MAX_HOOK_SIZE = 28;
+export const MAX_HOOKS_PER_DIRECTION = 5;
 
-const MIN_HOOK_SIZE = 8;
-const MAX_HOOK_SIZE = 28;
+export const clampHookOffset = (value: number = 0.5) =>
+  Math.min(0.95, Math.max(0.05, value));
+
+export const clampHookSize = (value: number = HOOK_SIZE) =>
+  Math.min(MAX_HOOK_SIZE, Math.max(MIN_HOOK_SIZE, value));
 
 const DEFAULT_HOOK_PROPS: Required<
   Pick<ConnectionHook, 'color' | 'size' | 'style' | 'tooltip' | 'arrowMode' | 'isVisible'>
 > = {
-  color: '#FFFFFF',
+  color: '#3B82F6',
   size: HOOK_SIZE,
   style: 'solid',
   tooltip: 'Hook de conexão',
   arrowMode: 'outgoing',
   isVisible: true,
 };
-
-const clampOffset = (value: number = 0.5) => Math.min(0.95, Math.max(0.05, value));
-const clampSize = (value: number = HOOK_SIZE) =>
-  Math.min(MAX_HOOK_SIZE, Math.max(MIN_HOOK_SIZE, value));
 
 // 🆕 Gera hooks padrão para um nó (1 hook por direção principal)
 export function getDefaultNodeHooks(nodeId: string): ConnectionHook[] {
@@ -49,7 +51,7 @@ export function addHook(
   const newHook: ConnectionHook = {
     id: `${node.id}-hook-${direction}-${nextIndex}`,
     direction,
-    offset: clampOffset(calculatedOffset),
+    offset: clampHookOffset(calculatedOffset),
     ...DEFAULT_HOOK_PROPS,
   };
 
@@ -87,7 +89,7 @@ export function redistributeHooks(
   // Redistribui offsets
   const redistributed = hooksInDirection.map((hook, index) => ({
     ...hook,
-    offset: clampOffset(calculateAutoOffset(hooksInDirection.length, index)),
+    offset: clampHookOffset(calculateAutoOffset(hooksInDirection.length, index)),
   }));
   
   return [...otherHooks, ...redistributed];
@@ -101,7 +103,7 @@ export function getHookPosition(
 ): { x: number; y: number } {
   const { x, y } = node.position;
   const { width, height } = node;
-  const safeOffset = clampOffset(offset);
+  const safeOffset = clampHookOffset(offset);
 
   switch (direction) {
     case 'top':
@@ -156,8 +158,6 @@ export function canAddHook(node: FlowNode, direction: HookDirection): boolean {
   const currentHooks = node.hooks || getDefaultNodeHooks(node.id);
   const hooksInDirection = currentHooks.filter(h => h.direction === direction);
   
-  // Limita a 5 hooks por direção para evitar sobreposição
-  const MAX_HOOKS_PER_DIRECTION = 5;
   return hooksInDirection.length < MAX_HOOKS_PER_DIRECTION;
 }
 
@@ -165,6 +165,29 @@ export function canAddHook(node: FlowNode, direction: HookDirection): boolean {
 export function getVisibleHooks(node: FlowNode): ConnectionHook[] {
   const hooks = node.hooks || getDefaultNodeHooks(node.id);
   return hooks.filter(h => h.isVisible !== false);
+}
+
+// 🆕 Calcula a posição de âncora para conexões baseada no hook
+export function getHookAnchorPosition(
+  node: FlowNode,
+  hookId?: string | null
+): { x: number; y: number } {
+  const center = {
+    x: node.position.x + node.width / 2,
+    y: node.position.y + node.height / 2,
+  };
+
+  if (!hookId) {
+    return center;
+  }
+
+  const hooks = node.hooks || getDefaultNodeHooks(node.id);
+  const hook = hooks.find(h => h.id === hookId);
+  if (!hook) {
+    return center;
+  }
+
+  return getHookPosition(node, hook.direction, hook.offset);
 }
 
 // 🆕 Atualiza propriedades de um hook específico
@@ -191,8 +214,8 @@ export function updateHookProperties(
       ...DEFAULT_HOOK_PROPS,
       ...updates,
       direction: nextDirection,
-      offset: clampOffset(nextOffset ?? 0.5),
-      size: clampSize(updates.size ?? hook.size ?? HOOK_SIZE),
+      offset: clampHookOffset(nextOffset ?? 0.5),
+      size: clampHookSize(updates.size ?? hook.size ?? HOOK_SIZE),
     };
   });
 }

@@ -10,7 +10,7 @@ interface HookManagerProps {
   onRedistributeHooks: (nodeId: string, direction: HookDirection) => void;
 }
 
-export const HookManager: React.FC<HookManagerProps> = ({
+export const HookManager: React.FC<HookManagerProps> = React.memo(({
   node,
   onAddHook,
   onRemoveHook,
@@ -158,4 +158,12 @@ export const HookManager: React.FC<HookManagerProps> = ({
       })}
     </>
   );
-};
+}, (prevProps, nextProps) => {
+  // Só re-renderiza se o node.id, node.width, node.height ou hooks mudarem
+  return (
+    prevProps.node.id === nextProps.node.id &&
+    prevProps.node.width === nextProps.node.width &&
+    prevProps.node.height === nextProps.node.height &&
+    JSON.stringify(prevProps.node.hooks) === JSON.stringify(nextProps.node.hooks)
+  );
+});

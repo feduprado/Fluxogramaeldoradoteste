@@ -11,8 +11,8 @@ interface ContainerProps {
   onResize: (containerId: string, newSize: { width: number; height: number }) => void;
   onToggleCollapse: (containerId: string) => void;
   onRename?: (containerId: string, newName: string) => void;
-  onStartConnection?: (containerId: string) => void;
-  onEndConnection?: (containerId: string) => void;
+  onStartConnection?: (containerId: string, hookId?: string) => void;
+  onEndConnection?: (containerId: string, hookId?: string) => void;
   isConnecting?: boolean;
   zoom: number;
   pan: { x: number; y: number };
