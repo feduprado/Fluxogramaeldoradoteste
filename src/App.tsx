@@ -87,6 +87,10 @@ const AppContent: React.FC = () => {
     // 🆕 Arraste múltiplo
     updateMultipleNodesPosition,
     clearMultiDragPositions, // 🆕 Limpa posições do arraste
+    addNodeHook,
+    removeNodeHook,
+    redistributeNodeHooks,
+    updateNodeHookProperties,
   } = useFlowchart();
 
   const {
@@ -471,6 +475,10 @@ const AppContent: React.FC = () => {
         onMouseUp={handleMouseUp}
         onWheel={handleWheel}
         theme={theme}
+        onAddHook={addNodeHook}
+        onRemoveHook={removeNodeHook}
+        onRedistributeHooks={redistributeNodeHooks}
+        onUpdateHook={updateNodeHookProperties}
       />
 
       {/* Menu contextual de conexões */}

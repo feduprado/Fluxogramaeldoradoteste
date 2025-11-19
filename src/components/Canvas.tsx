@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { FlowNode, Connection, HookDirection } from '../types';
+import { FlowNode, Connection, HookDirection, ConnectionHook } from '../types';
 import { Container as ContainerType } from '../types/container';
 import { FlowchartNode } from './FlowchartNode';
 import { Connection as ConnectionComponent } from './Connection';
@@ -43,6 +43,7 @@ interface CanvasProps {
   onAddHook?: (nodeId: string, direction: HookDirection) => void; // 🆕 Hook management
   onRemoveHook?: (nodeId: string, hookId: string) => void; // 🆕 Hook management
   onRedistributeHooks?: (nodeId: string, direction: HookDirection) => void; // 🆕 Hook management
+  onUpdateHook?: (nodeId: string, hookId: string, updates: Partial<ConnectionHook>) => void; // 🆕
 }
 
 export const Canvas: React.FC<CanvasProps> = ({
@@ -82,6 +83,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   onAddHook, // 🆕 Hook management
   onRemoveHook, // 🆕 Hook management
   onRedistributeHooks, // 🆕 Hook management
+  onUpdateHook, // 🆕
 }) => {
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -319,6 +321,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               onAddHook={onAddHook} // 🆕 Hook management
               onRemoveHook={onRemoveHook} // 🆕 Hook management
               onRedistributeHooks={onRedistributeHooks} // 🆕 Hook management
+              onUpdateHook={onUpdateHook} // 🆕
             />
           );
         })}

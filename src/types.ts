@@ -9,6 +9,11 @@ export interface ConnectionHook {
   direction: HookDirection;
   offset?: number; // Offset ao longo da borda (0-1)
   isVisible?: boolean; // Se deve ser renderizado
+  color?: string; // Cor personalizada do hook
+  size?: number; // Tamanho do hook em pixels
+  style?: 'solid' | 'dashed' | 'gradient'; // Estilo visual do hook
+  tooltip?: string; // Texto exibido ao passar o mouse
+  arrowMode?: 'incoming' | 'outgoing' | 'bidirectional'; // Orientação da seta
 }
 
 import { Container } from './types/container';

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { FlowNode, NodeType, Connection, FlowchartState, ConnectionStyle, HookDirection } from '../types';
+import { FlowNode, NodeType, Connection, FlowchartState, ConnectionStyle, HookDirection, ConnectionHook } from '../types';
 import { Container } from '../types/container';
 import { CONTAINER_COLORS, CONTAINER_BORDER_COLORS } from '../types/container';
 import { copyToFigmaClipboard } from '../utils/figmaClipboard';
@@ -971,6 +971,30 @@ export const useFlowchart = () => {
     });
   }, [addToHistory]);
 
+  const updateNodeHookProperties = useCallback((
+    nodeId: string,
+    hookId: string,
+    updates: Partial<ConnectionHook>
+  ) => {
+    console.log('🎨 Atualizando hook', hookId, 'do nó', nodeId, updates);
+    setState(prev => {
+      const node = prev.nodes.find(n => n.id === nodeId);
+      if (!node) return prev;
+
+      const { updateHookProperties } = require('../utils/hookManager');
+      const newHooks = updateHookProperties(node, hookId, updates);
+
+      const newState = {
+        ...prev,
+        nodes: prev.nodes.map(n =>
+          n.id === nodeId ? { ...n, hooks: newHooks } : n
+        ),
+      };
+      addToHistory(newState);
+      return newState;
+    });
+  }, [addToHistory]);
+
   return {
     ...state,
     addNode,
@@ -1025,5 +1049,6 @@ export const useFlowchart = () => {
     addNodeHook,
     removeNodeHook,
     redistributeNodeHooks,
+    updateNodeHookProperties,
   };
 };
